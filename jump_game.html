@@ -70,7 +70,7 @@
 
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
-        <div id="message-box" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-lg text-center hidden">
+        <div id="message-box" class="absolute top-1/2 left-1/2 -translate-x-1.2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-lg text-center hidden">
             <p id="message-text" class="text-xl font-bold mb-4"></p>
             <button id="message-ok" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                 OK
@@ -221,7 +221,7 @@
                     if (isCollidingX && isCollidingY) {
                         // プレイヤーの底辺が足場の上辺と重なる場合 (上から乗る)
                         if (prevY + this.height <= platform.y && this.y + this.height > platform.y && this.vy >= 0) {
-                            this.y = platform.y - this.height; // 足場の上に乗せる
+                            this.y = platform.y - this.height; // 足場の上 乗せる
                             this.vy = 0;
                             this.onGround = true;
                         }
@@ -467,8 +467,8 @@
                 }
             };
             
-            // ★ アップロードされたファイル名（URL）を指定
-            playerImage.src = '1000006120.jpg'; 
+            // ★ GitHub Pages 公開用にパスを変更
+            playerImage.src = '/jumpingmidori/1000006120.jpg'; 
             
             // タイムアウト処理 (画像読み込みに失敗してもゲームを開始する)
             setTimeout(() => {
