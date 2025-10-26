@@ -421,7 +421,10 @@
             // --- ゾーン2 (200m - 400m) ---
             // 難易度: 中 (足場が少し狭くなる) (Y: 2850 ... 1000)
             let y_zone2 = currentY - 2000; // Y: 3000 からスタート
-            platforms.push(new Platform(150, y_zone2 - 150, 80, 15)); // 14. 
+            
+            // ★ 修正: 14番目の足場のX座標を変更 (150 -> 130) して、登りやすく
+            platforms.push(new Platform(130, y_zone2 - 150, 80, 15)); // 14. ★位置調整
+            
             platforms.push(new Platform(300, y_zone2 - 300, 64, 15)); // 15. 
             platforms.push(new Platform(100, y_zone2 - 480, 80, 15)); // 16. 
             platforms.push(new Platform(250, y_zone2 - 650, 48, 15)); // 17. 
@@ -440,7 +443,10 @@
             // --- ゾーン3 (400m - 600m) ---
             // 難易度: 高 (足場がさらに狭くなる) (Y: 820 ... -1000)
             let y_zone3 = y_zone2 - 2000; // Y: 1000 からスタート
-            platforms.push(new Platform(200, y_zone3 - 180, 60, 15)); // 25. 
+            
+            // ★ 修正: 25番目の足場のX座標を変更 (200 -> 180) して、登りやすく
+            platforms.push(new Platform(180, y_zone3 - 180, 60, 15)); // 25. ★位置調整
+            
             platforms.push(new Platform(50, y_zone3 - 360, 48, 15));  // 26. 
             platforms.push(new Platform(250, y_zone3 - 540, 36, 15)); // 27. 
             platforms.push(new Platform(100, y_zone3 - 720, 60, 15)); // 28. 
