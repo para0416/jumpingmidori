@@ -390,7 +390,7 @@
 
         // --- ゲームの初期化・リセット ---
         
-        // ★ 固定ステージを定義 (拡張・難易度調整版)
+        // ★ 固定ステージを定義 (中間地点修正版)
         function createWorld() {
             platforms = [];
             let currentY = worldHeight; // Y座標の基点 (5000)
@@ -409,50 +409,50 @@
             platforms.push(new Platform(150, currentY - 1250, 60, 15)); // 9. 
             platforms.push(new Platform(20, currentY - 1450, 60, 15));  // 10.
             platforms.push(new Platform(200, currentY - 1650, 60, 15)); // 11. 
-            
-            // ★ 12番目の足場のX座標を変更 (100 -> 250) して、中間セーブ(13番)に登れるように
             platforms.push(new Platform(250, currentY - 1850, 100, 15)); // 12. 
             
             // ゾーン1 -> 2 への中間地点 (約200m地点, Y: 3000)
-            platforms.push(new Platform(0, currentY - 2000, GAME_WIDTH, 50)); // 13. 中間セーブ
+            // ★ 修正: 足場を2つに分割し、登るための隙間(X:150-200)を確保
+            platforms.push(new Platform(200, currentY - 2000, GAME_WIDTH - 200, 50)); // 13a. 右側
+            platforms.push(new Platform(0, currentY - 2000, 150, 50)); // 13b. 左側
 
             // --- ゾーン2 (200m - 400m) ---
             // 難易度: 中 (足場が少し狭くなる) (Y: 2850 ... 1000)
             let y_zone2 = currentY - 2000; // Y: 3000 からスタート
-            platforms.push(new Platform(150, y_zone2 - 150, 80, 15)); // 14. (幅100->80)
-            platforms.push(new Platform(300, y_zone2 - 300, 64, 15)); // 15. (幅80->64)
-            platforms.push(new Platform(100, y_zone2 - 480, 80, 15)); // 16. (幅100->80)
-            platforms.push(new Platform(250, y_zone2 - 650, 48, 15)); // 17. (幅60->48)
-            platforms.push(new Platform(50, y_zone2 - 850, 48, 15));  // 18. (幅60->48)
-            platforms.push(new Platform(200, y_zone2 - 1050, 80, 15));// 19. (幅100->80)
-            platforms.push(new Platform(100, y_zone2 - 1250, 64, 15));// 20. (幅80->64)
-            platforms.push(new Platform(300, y_zone2 - 1450, 48, 15));// 21. (幅60->48)
-            platforms.push(new Platform(150, y_zone2 - 1650, 80, 15));// 22. (幅100->80)
-            
-            // ★ 23番目の足場のX座標を変更 (20 -> 300) して、中間セーブ(24番)に登れるように
-            platforms.push(new Platform(300, y_zone2 - 1850, 48, 15)); // 23. (幅60->48)
+            platforms.push(new Platform(150, y_zone2 - 150, 80, 15)); // 14. 
+            platforms.push(new Platform(300, y_zone2 - 300, 64, 15)); // 15. 
+            platforms.push(new Platform(100, y_zone2 - 480, 80, 15)); // 16. 
+            platforms.push(new Platform(250, y_zone2 - 650, 48, 15)); // 17. 
+            platforms.push(new Platform(50, y_zone2 - 850, 48, 15));  // 18. 
+            platforms.push(new Platform(200, y_zone2 - 1050, 80, 15));// 19. 
+            platforms.push(new Platform(100, y_zone2 - 1250, 64, 15));// 20. 
+            platforms.push(new Platform(300, y_zone2 - 1450, 48, 15));// 21. 
+            platforms.push(new Platform(150, y_zone2 - 1650, 80, 15));// 22. 
+            platforms.push(new Platform(300, y_zone2 - 1850, 48, 15)); // 23. 
 
             // ゾーン2 -> 3 への中間地点 (約400m地点, Y: 1000)
-            platforms.push(new Platform(0, y_zone2 - 2000, GAME_WIDTH, 50)); // 24. 中間セーブ
+            // ★ 修正: 足場を2つに分割し、登るための隙間(X:200-250)を確保
+            platforms.push(new Platform(250, y_zone2 - 2000, GAME_WIDTH - 250, 50)); // 24a. 右側
+            platforms.push(new Platform(0, y_zone2 - 2000, 200, 50)); // 24b. 左側
             
             // --- ゾーン3 (400m - 600m) ---
             // 難易度: 高 (足場がさらに狭くなる) (Y: 820 ... -1000)
             let y_zone3 = y_zone2 - 2000; // Y: 1000 からスタート
-            platforms.push(new Platform(200, y_zone3 - 180, 60, 15)); // 25. (幅100->60)
-            platforms.push(new Platform(50, y_zone3 - 360, 48, 15));  // 26. (幅80->48)
-            platforms.push(new Platform(250, y_zone3 - 540, 36, 15)); // 27. (幅60->36)
-            platforms.push(new Platform(100, y_zone3 - 720, 60, 15)); // 28. (幅100->60)
-            platforms.push(new Platform(300, y_zone3 - 900, 36, 15)); // 29. (幅60->36)
-            platforms.push(new Platform(150, y_zone3 - 1100, 48, 15));// 30. (幅80->48)
-            platforms.push(new Platform(20, y_zone3 - 1300, 60, 15)); // 31. (幅100->60)
-            platforms.push(new Platform(200, y_zone3 - 1500, 36, 15));// 32. (幅60->36)
-            platforms.push(new Platform(50, y_zone3 - 1700, 48, 15)); // 33. (幅80->48)
-            
-            // ★ 34番目の足場のX座標を変更 (250 -> 50) して、ゴール(35番)に登れるように
-            platforms.push(new Platform(50, y_zone3 - 1900, 60, 15));// 34. (幅100->60)
+            platforms.push(new Platform(200, y_zone3 - 180, 60, 15)); // 25. 
+            platforms.push(new Platform(50, y_zone3 - 360, 48, 15));  // 26. 
+            platforms.push(new Platform(250, y_zone3 - 540, 36, 15)); // 27. 
+            platforms.push(new Platform(100, y_zone3 - 720, 60, 15)); // 28. 
+            platforms.push(new Platform(300, y_zone3 - 900, 36, 15)); // 29. 
+            platforms.push(new Platform(150, y_zone3 - 1100, 48, 15));// 30. 
+            platforms.push(new Platform(20, y_zone3 - 1300, 60, 15)); // 31. 
+            platforms.push(new Platform(200, y_zone3 - 1500, 36, 15));// 32. 
+            platforms.push(new Platform(50, y_zone3 - 1700, 48, 15)); // 33. 
+            platforms.push(new Platform(50, y_zone3 - 1900, 60, 15));// 34. 
             
             // ゾーン3 ゴール (約600m地点, Y: -1000)
-            platforms.push(new Platform(0, y_zone3 - 2000, GAME_WIDTH, 50)); // 35. 最終ゴール
+            // ★ 修正: 足場を2つに分割し、登るための隙間(X:50-100)を確保
+            platforms.push(new Platform(100, y_zone3 - 2000, GAME_WIDTH - 100, 50)); // 35a. 右側
+            platforms.push(new Platform(0, y_zone3 - 2000, 50, 50)); // 35b. 左側
             
             // ゴール後の最上部 (Y: -1100)
             platforms.push(new Platform(0, y_zone3 - 2100, 50, 15)); 
