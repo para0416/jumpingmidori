@@ -22,6 +22,7 @@
             width: 100%;
             height: 100%;
             object-fit: contain; /* アスペクト比を維持 */
+            cursor: pointer; /* ★ タップ可能を示すカーソル */
         }
         #game-container {
             width: 100vw;
@@ -73,7 +74,7 @@
             border-radius: 4px;
             border: 1px solid white;
             cursor: pointer;
-            margin-top: 8px; /* ★ mt-2 と合わせるため 8px を指定 */
+            margin-top: 8px;
             font-size: 14px;
         }
         #mute-btn:hover {
@@ -97,9 +98,8 @@
             <p>最高到達点: <span id="max-height-display">0</span>m</p>
             <p>現在の高さ: <span id="current-height-display">0</span>m</p>
             <p>プレイ回数: <span id="play-count-display">0</span>回</p>
-            <button id="mute-btn">BGM ON/OFF</button> <!-- ★ class="mt-2" はCSS側で指定済のため削除 -->
-            <!-- ★ 神モードボタンを追加 -->
-            <button id="god-mode-btn" class="mt-2 bg-yellow-500 text-black p-1 rounded text-sm font-bold">神モード OFF</button>
+            <button id="mute-btn">BGM ON/OFF</button>
+            <!-- 神モードボタンは削除済み -->
         </div>
     </div>
 
@@ -111,8 +111,7 @@
         <button id="btn-jump" class="touch-btn w-20 h-20">JUMP</button>
     </div>
 
-    <!-- ★ BGM用Audioタグを追加 -->
-    <!-- ★ GitHub Pages公開用にパスを修正 -->
+    <!-- BGM用Audioタグ (パスは公開用) -->
     <audio id="bgm-audio" loop src="/jumpingmidori/闇のささやき.mp3"></audio>
 
     <script type="module">
@@ -125,13 +124,19 @@
         const currentHeightDisplay = document.getElementById('current-height-display');
         const playCountDisplay = document.getElementById('play-count-display');
 
-        // ★ BGM関連
+        // BGM関連
         const bgm = document.getElementById('bgm-audio');
         const muteBtn = document.getElementById('mute-btn');
-        let audioStarted = false; // ユーザー操作による再生開始フラグ
+        let audioStarted = false;
 
-        // ★ 神モード（死なないモード）フラグ
+        // 神モード（落下しない）フラグ
         let godMode = false;
+        // 神モード切り替え用のタップカウント
+        let playerTapCount = 0;
+        let lastPlayerTapTime = 0;
+        const tapTimeout = 500; // 500ms以内に連続タップ
+        let showTapFeedback = false; // ★ タップフィードバック表示用フラグ
+        let tapFeedbackTimer = null; // ★ フィードバック表示タイマー
 
         // ゲーム内単位での仮想解像度
         const GAME_WIDTH = 400;
@@ -139,38 +144,31 @@
 
         let player;
         let platforms = [];
-        let keys = {
-            ArrowLeft: false,
-            ArrowRight: false,
-            Space: false
-        };
+        let keys = { ArrowLeft: false, ArrowRight: false, Space: false };
 
-        // ★ 画像読み込み用の変数
+        // 画像読み込み用の変数
         let playerImage;
-        let gameStarted = false; // 二重起動防止
+        let gameStarted = false;
 
-        // ★ プレイ回数カウンター
+        // プレイ回数カウンター
         let playCount = 0;
 
         // 物理定数
         const GRAVITY = 0.3;
-        const FRICTION = 0.85; // 地上での摩擦 (ジャンプ後は使われない)
-        const AIR_FRICTION = 0.99; // 空中での水平速度の減衰
-
-        // ★★★ ジャンプのロジックを「角度調整」に戻す
-        const JUMP_HORIZONTAL_SPEED_MIN = 0.5; // ★最小ジャンプ時の水平速度
-        const JUMP_HORIZONTAL_SPEED_MAX = 6;   // ★最大ジャンプ時の水平速度
-
-        const MAX_JUMP_CHARGE = 100; // ジャンプ溜めの最大値
-        const JUMP_FORCE_MIN = 1; // 最小ジャンプ力 (垂直)
-        const JUMP_FORCE_MAX = 15; // 最大ジャンプ力 (垂直)
+        const FRICTION = 0.85;
+        const AIR_FRICTION = 0.99;
+        const JUMP_HORIZONTAL_SPEED_MIN = 0.5;
+        const JUMP_HORIZONTAL_SPEED_MAX = 6;
+        const MAX_JUMP_CHARGE = 100;
+        const JUMP_FORCE_MIN = 1;
+        const JUMP_FORCE_MAX = 15;
 
         let isCharging = false;
         let jumpCharge = 0;
-        let cameraY = 0; // カメラのY座標 (どれだけ上にスクロールしたか)
-        let worldHeight = 5000; // ステージの総高さ
-        let maxHeightReached = 0; // 最高到達点 (Y座標なので小さいほど高い)
-        let pixelsPerMeter = 10; // 1メートルあたりのピクセル数（スコア表示用）
+        let cameraY = 0;
+        let worldHeight = 5000;
+        let maxHeightReached = 0;
+        let pixelsPerMeter = 10;
 
         // メッセージボックス
         const messageBox = document.getElementById('message-box');
@@ -189,306 +187,224 @@
                 this.vx = 0;
                 this.vy = 0;
                 this.onGround = false;
-                this.color = '#FF5733'; // フォールバック時の色
-                this.direction = 'right'; // ★向きを追加 (最初は右)
+                this.color = '#FF5733';
+                this.direction = 'right';
             }
 
             // プレイヤーの更新
             update() {
-                // 1. 入力に基づく水平移動・方向転換
-                // ★地上にいて、ジャンプ溜め中でない場合のみ、方向転換を許可
+                // ... (方向転換、物理演算、壁・足場当たり判定は変更なし) ...
+                 // 1. 方向転換 (地上かつ非チャージ中のみ)
                 if (this.onGround && !isCharging) {
-                    if (keys.ArrowLeft) {
-                        this.direction = 'left';
-                    } else if (keys.ArrowRight) {
-                        this.direction = 'right';
-                    }
-                    this.vx = 0; // 地上では常に水平速度0
+                    if (keys.ArrowLeft) this.direction = 'left';
+                    else if (keys.ArrowRight) this.direction = 'right';
+                    this.vx = 0;
+                } else if (this.onGround) {
+                    this.vx = 0; // チャージ中も停止
                 }
-                // ★空中での左右操作は不可
-                else if (this.onGround) {
-                     this.vx = 0; // ジャンプ溜め中も水平速度0
-                }
-
 
                 // 2. 物理演算
-                this.vy += GRAVITY; // 重力
+                this.vy += GRAVITY;
+                if (!this.onGround) this.vx *= AIR_FRICTION; // 空中減衰
 
-                // 摩擦
-                if (this.onGround) {
-                    // 地面上ではvxは0
-                    this.vx *= FRICTION;
-                } else if (!this.onGround) { // 空中
-                    // ★空中にいる間は、キー入力に関わらず水平速度は減衰していく
-                    this.vx *= AIR_FRICTION;
-                }
-
-                // 速度が小さすぎたら0にする
+                // 速度閾値
                 if (Math.abs(this.vx) < 0.1) this.vx = 0;
-                if (Math.abs(this.vy) < 0.1 && this.onGround && !isCharging) this.vy = 0; // ジャンプ溜め中は微小なvyでも0にしない
+                if (Math.abs(this.vy) < 0.1 && this.onGround && !isCharging) this.vy = 0;
 
-                // 古い位置を保存
                 const prevX = this.x;
                 const prevY = this.y;
 
-                // 3. 位置の更新
+                // 3. 位置更新
                 this.x += this.vx;
                 this.y += this.vy;
+                this.onGround = false; // リセット
 
-                this.onGround = false; // 毎フレームリセット
+                // 4. 壁当たり判定 (反転)
+                if (this.x < 0) { this.x = 0; this.vx *= -0.5; }
+                if (this.x + this.width > GAME_WIDTH) { this.x = GAME_WIDTH - this.width; this.vx *= -0.5; }
 
-                // 4. 当たり判定 (壁)
-                // ★壁に当たったら水平速度を反転させる (ジャンプキング風)
-                if (this.x < 0) {
-                    this.x = 0;
-                    this.vx *= -0.5; // 少し跳ね返る
-                }
-                if (this.x + this.width > GAME_WIDTH) {
-                    this.x = GAME_WIDTH - this.width;
-                    this.vx *= -0.5; // 少し跳ね返る
-                }
-
-                // 5. 当たり判定 (足場)
+                // 5. 足場当たり判定
                 platforms.forEach(platform => {
-                    // 足場とプレイヤーの現在位置での重なりをチェック
                     const isCollidingX = this.x + this.width > platform.x && this.x < platform.x + platform.width;
                     const isCollidingY = this.y + this.height > platform.y && this.y < platform.y + platform.height;
-
-                    // 前フレームでの水平方向の重なり
                     const wasCollidingX = prevX + this.width > platform.x && prevX < platform.x + platform.width;
 
                     if (isCollidingX && isCollidingY) {
-                        // プレイヤーの底辺が足場の上辺と重なる場合 (上から乗る)
+                        // 上から着地
                         if (prevY + this.height <= platform.y && this.y + this.height > platform.y && this.vy >= 0) {
-                            this.y = platform.y - this.height; // 足場の上 乗せる
+                            this.y = platform.y - this.height;
                             this.vy = 0;
                             this.onGround = true;
                         }
-                        // プレイヤーの頭が足場の底辺と重なる場合 (下から衝突)
+                        // 下から衝突
                         else if (prevY >= platform.y + platform.height && this.y < platform.y + platform.height && this.vy < 0) {
-                            this.y = platform.y + platform.height; // 足場の下端で止める
-                            this.vy = 0; // 上向きの速度を0にする
+                            this.y = platform.y + platform.height;
+                            this.vy = 0;
                         }
                     }
 
-                    // ★横からの衝突判定 (空中にいるとき)
+                    // 横から衝突 (空中)
                     if (!this.onGround && !isCollidingY && !wasCollidingX) {
-                         // 前フレームでは横が重なっておらず、今フレームで重なっている
-                         // かつ、Y方向は（前フレームでも今フレームでも）重なっている
                          const wasCollidingY = prevY + this.height > platform.y && prevY < platform.y + platform.height;
                          if (isCollidingX && wasCollidingY) {
-                            // 左右どちらから衝突したか
-                             if (this.vx > 0 && prevX + this.width <= platform.x) { // 右に移動中
+                             if (this.vx > 0 && prevX + this.width <= platform.x) { // 右へ
                                  this.x = platform.x - this.width;
-                                 this.vx *= -0.5; // 反転
-                             } else if (this.vx < 0 && prevX >= platform.x + platform.width) { // 左に移動中
+                                 this.vx *= -0.5;
+                             } else if (this.vx < 0 && prevX >= platform.x + platform.width) { // 左へ
                                  this.x = platform.x + platform.width;
-                                 this.vx *= -0.5; // 反転
+                                 this.vx *= -0.5;
                              }
                          }
                     }
                 });
 
-                // 6. 落下判定 (画面下 + カメラ位置より下に落ちた)
-                const fallThreshold = cameraY + GAME_HEIGHT + 100; // 落下判定ライン
 
-                // ★ 神モード(godMode)が false の場合のみ、落下判定を実行
+                // 6. 落下判定
+                const fallThreshold = cameraY + GAME_HEIGHT + 100;
+                // 神モード(godMode)が false の場合のみ落下処理
                 if (this.y > fallThreshold && !godMode) {
-                    // ★ 通常モードの場合: メッセージ表示
                     showFallMessage();
                 }
 
-                // 7. 高さの更新
-
-                // ★ 現在の高さを計算して表示
+                // 7. 高さ更新
                 const currentHeightInMeters = Math.max(0, Math.floor((worldHeight - this.y) / pixelsPerMeter));
-                if (currentHeightDisplay) {
-                    currentHeightDisplay.textContent = currentHeightInMeters;
-                }
+                if (currentHeightDisplay) currentHeightDisplay.textContent = currentHeightInMeters;
 
-                // ★ 最高到達点の更新
                 if (this.y < maxHeightReached) {
                     maxHeightReached = this.y;
-                    // スコア表示を更新 (スタート地点(worldHeight)からの差分)
                     const heightInMeters = Math.floor((worldHeight - maxHeightReached) / pixelsPerMeter);
                     maxHeightDisplay.textContent = heightInMeters;
                 }
-
             }
 
             // プレイヤーの描画
             draw(ctx) {
-                ctx.save(); // 描画状態を保存
+                ctx.save();
 
-                // ジャンプパワーゲージの描画 (キャラクターより手前)
+                // ★ タップフィードバック (白く光る)
+                if (showTapFeedback) {
+                     ctx.filter = 'brightness(2)';
+                }
+                // ★ 神モードの視覚フィードバック (黄色フィルター)
+                else if (godMode) {
+                    ctx.filter = 'sepia(80%) hue-rotate(-50deg) saturate(500%) brightness(1.1)';
+                }
+
+                // ジャンプゲージ
                 if (isCharging) {
+                    // ... (ゲージ描画は変更なし) ...
                     const chargeRatio = jumpCharge / MAX_JUMP_CHARGE;
                     const barWidth = this.width;
                     const barHeight = 5;
                     const barX = this.x;
-                    const barY = this.y - 10; // 頭上
-
-                    // ゲージの枠
+                    const barY = this.y - 10;
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
                     ctx.fillRect(barX, barY, barWidth, barHeight);
-
-                    // ゲージ本体 (赤くする)
                     ctx.fillStyle = `rgb(255, ${255 * (1 - chargeRatio)}, 0)`;
                     ctx.fillRect(barX, barY, barWidth * chargeRatio, barHeight);
                 }
 
-                // ★ キャラクター画像の描画
-                // (playerImage が存在し、読み込み完了している場合)
+                // キャラクター画像
                 if (playerImage && playerImage.complete && playerImage.naturalWidth > 0) {
+                     // ... (画像描画は変更なし) ...
                     let drawX = this.x;
-
                     if (this.direction === 'left') {
-                        // 左向きの場合、キャンバスを反転
                         ctx.scale(-1, 1);
-                        // 反転したため、描画X座標を調整 (プレイヤーの中心で反転させるためwidth分ずらす)
                         drawX = -(this.x + this.width);
                     }
-
-                    // (drawX, this.y) の位置に (width, height) のサイズで画像を描画
                     ctx.drawImage(playerImage, drawX, this.y, this.width, this.height);
-
                 } else {
-                    // 画像読み込み失敗時のフォールバック (赤い四角)
+                    // フォールバック描画 (色と目)
+                     // ... (フォールバック描画は変更なし) ...
                     ctx.fillStyle = this.color;
                     ctx.fillRect(this.x, this.y, this.width, this.height);
-
-                    // ★向きを示す「目」を描画 (フォールバック時)
                     ctx.fillStyle = '#FFFFFF';
-                    const eyeWidth = 5;
-                    const eyeHeight = 5;
-                    const eyeY = this.y + 5;
-                    let eyeX;
-
-                    if (this.direction === 'right') {
-                        eyeX = this.x + this.width - eyeWidth - 3; // 右端
-                    } else {
-                        eyeX = this.x + 3; // 左端
-                    }
+                    const eyeWidth = 5, eyeHeight = 5, eyeY = this.y + 5;
+                    let eyeX = (this.direction === 'right') ? this.x + this.width - eyeWidth - 3 : this.x + 3;
                     ctx.fillRect(eyeX, eyeY, eyeWidth, eyeHeight);
                 }
 
-                ctx.restore(); // 描画状態を元に戻す (反転などをリセット)
+                ctx.restore(); // フィルターや反転をリセット
             }
 
-
-            // ★★★ ジャンプ処理のロジックを「角度調整」に戻す ★★★
+            // ジャンプ処理 (角度調整バージョン、変更なし)
             jump() {
+                // ... (変更なし) ...
                 if (this.onGround) {
-                    // 溜め時間に応じてジャンプ力を計算
                     const chargeRatio = Math.min(jumpCharge, MAX_JUMP_CHARGE) / MAX_JUMP_CHARGE;
-
-                    // ★垂直方向のジャンプ力 (溜めに比例)
                     const forceY = JUMP_FORCE_MIN + (JUMP_FORCE_MAX - JUMP_FORCE_MIN) * chargeRatio;
-
-                    // ★水平方向のジャンプ力 (溜めに比例)
                     const forceX = JUMP_HORIZONTAL_SPEED_MIN + (JUMP_HORIZONTAL_SPEED_MAX - JUMP_HORIZONTAL_SPEED_MIN) * chargeRatio;
-
                     this.vy = -forceY;
                     this.onGround = false;
-
-                    // ★ 水平方向の速度を、キー入力ではなく「向き」に基づいて決定
-                    if (this.direction === 'left') {
-                        this.vx = -forceX;
-                    } else { // 'right'
-                        this.vx = forceX;
-                    }
+                    this.vx = (this.direction === 'left') ? -forceX : forceX;
                 }
-                // 溜め状態をリセット
                 isCharging = false;
                 jumpCharge = 0;
-                keys.Space = false; // ジャンプ実行後、Spaceキーの状態もリセット
+                keys.Space = false;
             }
         }
 
-        // 足場
+        // 足場クラス (変更なし)
         class Platform {
+             // ... (変更なし) ...
             constructor(x, y, width, height = 15) {
-                this.x = x;
-                this.y = y;
-                this.width = width;
-                this.height = height;
-                this.color = '#654321'; // 茶色
+                this.x = x; this.y = y; this.width = width; this.height = height; this.color = '#654321';
             }
-
             draw(ctx) {
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
-
-                // 少し立体的に見せるための明るい上辺
-                ctx.fillStyle = '#8B5A2B';
-                ctx.fillRect(this.x, this.y, this.width, 3);
+                ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = '#8B5A2B'; ctx.fillRect(this.x, this.y, this.width, 3);
             }
         }
 
-        // --- メッセージ表示 ---
+        // --- メッセージ表示 (変更なし) ---
         function showFallMessage() {
-            // "下に落ちてしまった！"
+            // ... (変更なし) ...
             messageText.textContent = "下に落ちてしまった！";
             messageBox.classList.remove('hidden');
         }
 
-        // ★ プレイ回数を更新する関数
         function updatePlayCountDisplay() {
-            if (playCountDisplay) {
-                playCountDisplay.textContent = playCount;
-            }
+             // ... (変更なし) ...
+            if (playCountDisplay) playCountDisplay.textContent = playCount;
         }
 
-        // ★ OKボタンのイベントリスナーを修正
         messageOk.addEventListener('click', () => {
+             // ... (変更なし) ...
             messageBox.classList.add('hidden');
-            playCount++; // ★ プレイ回数を増やす
-            updatePlayCountDisplay(); // ★ 表示を更新
-            resetGame(); // OKを押したらリセット
+            playCount++;
+            updatePlayCountDisplay();
+            resetGame();
         });
 
-
-        // --- BGM制御 ---
-        // ★ BGM再生を試みる関数
+        // --- BGM制御 (変更なし) ---
         async function playBgm() {
-            if (audioStarted) return; // 既に開始しようとした
-
-            // mutedプロパティで再生開始
-            bgm.muted = false; // ミュート解除
+             // ... (変更なし) ...
+            if (audioStarted) return;
+            bgm.muted = false;
             try {
                 await bgm.play();
-                audioStarted = true; // 再生成功
+                audioStarted = true;
                 muteBtn.textContent = "BGM OFF";
                 console.log("BGM started.");
             } catch (err) {
-                console.warn("BGM autoplay failed. Waiting for user interaction.", err);
-                // ユーザー操作があるまで再生は保留される
-                muteBtn.textContent = "BGM ON"; // 再生失敗時はON表示
+                console.warn("BGM autoplay failed.", err);
+                muteBtn.textContent = "BGM ON";
             }
         }
 
-        // ★ ミュートボタンのクリックイベント
         muteBtn.addEventListener('click', () => {
-            if (bgm.paused) {
-                // もし停止中なら再生（初回再生用）
-                playBgm();
-            } else {
-                // 再生中ならミュート切り替え
-                bgm.muted = !bgm.muted;
-                muteBtn.textContent = bgm.muted ? "BGM ON" : "BGM OFF";
-            }
+             // ... (変更なし) ...
+            if (bgm.paused) playBgm();
+            else { bgm.muted = !bgm.muted; muteBtn.textContent = bgm.muted ? "BGM ON" : "BGM OFF"; }
         });
 
-
-        // --- ゲームの初期化・リセット ---
-
-        // ★ 固定ステージを定義
+        // --- ゲームの初期化・リセット (ステージ定義は変更なし) ---
         function createWorld() {
+            // ... (ステージ定義は変更なし) ...
             platforms = [];
-            let currentY = worldHeight; // Y座標の基点 (5000)
-
-            // --- ゾーン1 (0m - 200m) ---
-            platforms.push(new Platform(50, currentY - 50, GAME_WIDTH - 100, 50)); // 0. スタート
+            let currentY = worldHeight;
+            // --- ゾーン1 ---
+            platforms.push(new Platform(50, currentY - 50, GAME_WIDTH - 100, 50)); // 0.
             platforms.push(new Platform(280, currentY - 150, 100, 15)); // 1.
             platforms.push(new Platform(150, currentY - 230, 100, 15)); // 2.
             platforms.push(new Platform(20, currentY - 330, 100, 15));  // 3.
@@ -498,57 +414,32 @@
             platforms.push(new Platform(160, currentY - 900, 80, 15));  // 7.
             platforms.push(new Platform(300, currentY - 1050, 80, 15)); // 8.
             platforms.push(new Platform(150, currentY - 1250, 60, 15)); // 9.
-            platforms.push(new Platform(20, currentY - 1450, 60, 15));  // 10. (Y:3550)
-            platforms.push(new Platform(200, currentY - 1650, 60, 15)); // 11. (Y:3350)
-            
-            // ★★★ ユーザー要望により新しい足場を追加 (Y:3330)
-            platforms.push(new Platform(300, currentY - 1670, 80, 15)); // 11b. ★ 要望により追加
-
-            // ★ 修正: 195m地点を簡単な階段に変更
-            platforms.push(new Platform(200, currentY - 1850, 100, 15)); // 12. (Y:3150)
-            platforms.push(new Platform(100, currentY - 1920, 80, 15)); // 12b. ★新しい階段 (Y:3080)
-
-            // ゾーン1 -> 2 への中間地点 (約200m地点, Y: 3000)
-            // (登るための隙間は(X:150-200)に確保)
-            platforms.push(new Platform(200, currentY - 2000, GAME_WIDTH - 200, 50)); // 13a. 右側
-            platforms.push(new Platform(0, currentY - 2000, 150, 50)); // 13b. 左側
-
-            // --- ゾーン2 (200m - 400m) ---
-            // ★ 難易度: 角度と高さを意識するステージ (狭い足場と隙間)
-            let y_zone2 = currentY - 2000; // Y: 3000 からスタート
-
-            platforms.push(new Platform(130, y_zone2 - 150, 40, 15)); // 14. 狭い足場
-            platforms.push(new Platform(300, y_zone2 - 300, 40, 15)); // 15. 狭い足場
-            
-            // ★★★ 修正: 足場①の幅を 40 -> 100 にさらに拡張
-            platforms.push(new Platform(100, y_zone2 - 480, 100, 15)); // 16. (①) ★さらに幅を拡張
-
-            // 壁1 (隙間: X 150-200)
-            platforms.push(new Platform(0, y_zone2 - 650, 150, 80));   // 17a. 左壁
-            platforms.push(new Platform(200, y_zone2 - 650, 200, 80)); // 17b. 右壁 (赤線)
-
-            // ★★★ 修正: 足場②を「壁反射」用に X:130-200 に拡張
-            platforms.push(new Platform(130, y_zone2 - 750, 70, 15));  // 18. (②) ★壁反射の受け皿
-
-            platforms.push(new Platform(50, y_zone2 - 950, 40, 15));   // 19. 狭い足場
-            platforms.push(new Platform(250, y_zone2 - 1150, 40, 15)); // 20. 狭い足場
-
-            // 壁2 (隙間: X 300-350)
-            platforms.push(new Platform(0, y_zone2 - 1350, 300, 80));   // 21a. 左壁
-            platforms.push(new Platform(350, y_zone2 - 1350, 50, 80));  // 21b. 右壁
-
-            platforms.push(new Platform(310, y_zone2 - 1450, 40, 15)); // 22. 隙間の後の足場
-            platforms.push(new Platform(150, y_zone2 - 1650, 40, 15)); // 23. 狭い足場
-            platforms.push(new Platform(300, y_zone2 - 1850, 40, 15)); // 24. 最後の狭い足場
-
-            // ゾーン2 -> 3 への中間地点 (約400m地点, Y: 1000)
-            platforms.push(new Platform(250, y_zone2 - 2000, GAME_WIDTH - 250, 50)); // 24a. 右側
-            platforms.push(new Platform(0, y_zone2 - 2000, 200, 50)); // 24b. 左側
-
-            // --- ゾーン3 (400m - 600m) ---
-            // (元のデザインのまま)
-            let y_zone3 = y_zone2 - 2000; // Y: 1000 からスタート
-
+            platforms.push(new Platform(20, currentY - 1450, 60, 15));  // 10.
+            platforms.push(new Platform(200, currentY - 1650, 60, 15)); // 11.
+            platforms.push(new Platform(300, currentY - 1670, 80, 15)); // 11b.
+            platforms.push(new Platform(200, currentY - 1850, 100, 15)); // 12.
+            platforms.push(new Platform(100, currentY - 1920, 80, 15)); // 12b.
+            platforms.push(new Platform(200, currentY - 2000, GAME_WIDTH - 200, 50)); // 13a.
+            platforms.push(new Platform(0, currentY - 2000, 150, 50)); // 13b.
+            // --- ゾーン2 ---
+            let y_zone2 = currentY - 2000;
+            platforms.push(new Platform(130, y_zone2 - 150, 40, 15)); // 14.
+            platforms.push(new Platform(300, y_zone2 - 300, 40, 15)); // 15.
+            platforms.push(new Platform(100, y_zone2 - 480, 100, 15)); // 16. (①)
+            platforms.push(new Platform(0, y_zone2 - 650, 150, 80));   // 17a.
+            platforms.push(new Platform(200, y_zone2 - 650, 200, 80)); // 17b.
+            platforms.push(new Platform(130, y_zone2 - 750, 70, 15));  // 18. (②)
+            platforms.push(new Platform(50, y_zone2 - 950, 40, 15));   // 19.
+            platforms.push(new Platform(250, y_zone2 - 1150, 40, 15)); // 20.
+            platforms.push(new Platform(0, y_zone2 - 1350, 300, 80));   // 21a.
+            platforms.push(new Platform(350, y_zone2 - 1350, 50, 80));  // 21b.
+            platforms.push(new Platform(310, y_zone2 - 1450, 40, 15)); // 22.
+            platforms.push(new Platform(150, y_zone2 - 1650, 40, 15)); // 23.
+            platforms.push(new Platform(300, y_zone2 - 1850, 40, 15)); // 24.
+            platforms.push(new Platform(250, y_zone2 - 2000, GAME_WIDTH - 250, 50)); // 24a.
+            platforms.push(new Platform(0, y_zone2 - 2000, 200, 50)); // 24b.
+            // --- ゾーン3 ---
+            let y_zone3 = y_zone2 - 2000;
             platforms.push(new Platform(180, y_zone3 - 180, 60, 15)); // 25.
             platforms.push(new Platform(50, y_zone3 - 360, 48, 15));  // 26.
             platforms.push(new Platform(250, y_zone3 - 540, 36, 15)); // 27.
@@ -559,375 +450,215 @@
             platforms.push(new Platform(200, y_zone3 - 1500, 36, 15));// 32.
             platforms.push(new Platform(50, y_zone3 - 1700, 48, 15)); // 33.
             platforms.push(new Platform(50, y_zone3 - 1900, 60, 15));// 34.
-
-            // ゾーン3 ゴール (約600m地点, Y: -1000)
-            platforms.push(new Platform(100, y_zone3 - 2000, GAME_WIDTH - 100, 50)); // 35a. 右側
-            platforms.push(new Platform(0, y_zone3 - 2000, 50, 50)); // 35b. 左側
-
-            // ゴール後の最上部 (Y: -1100)
-            platforms.push(new Platform(0, y_zone3 - 2100, 50, 15));
+            platforms.push(new Platform(100, y_zone3 - 2000, GAME_WIDTH - 100, 50)); // 35a.
+            platforms.push(new Platform(0, y_zone3 - 2000, 50, 50)); // 35b.
+            platforms.push(new Platform(0, y_zone3 - 2100, 50, 15)); // Goal Top
         }
-
 
         function resetGame() {
-            // ★ ステージは再生成しない
-            // createWorld();
-
-            // スタート地点 (Y座標はworldHeight)
-            const startPlatform = platforms[0]; // 最初の足場
+            // ... (変更なし) ...
+            const startPlatform = platforms[0];
             player = new Player(GAME_WIDTH / 2, startPlatform.y - 50);
-
-            // ★ リセット時の高さを計算して表示
             const startHeightInMeters = Math.max(0, Math.floor((worldHeight - player.y) / pixelsPerMeter));
-            if (currentHeightDisplay) {
-                currentHeightDisplay.textContent = startHeightInMeters;
-            }
-
-            cameraY = worldHeight - GAME_HEIGHT; // カメラをスタート地点に合わせる
-
-            // maxHeightReachedはリセットするが、表示はグローバルな最大値を保持したい
+            if (currentHeightDisplay) currentHeightDisplay.textContent = startHeightInMeters;
+            cameraY = worldHeight - GAME_HEIGHT;
             if (maxHeightReached === 0 || player.y < maxHeightReached) {
-                 maxHeightReached = player.y; // リセット後のプレイヤー位置
+                 maxHeightReached = player.y;
             }
-            // maxHeightDisplay.textContent = '0'; // 0にリセットしない
-
             isCharging = false;
             jumpCharge = 0;
-            // キー状態もリセット
-            keys.ArrowLeft = false;
-            keys.ArrowRight = false;
-            keys.Space = false;
+            keys.ArrowLeft = false; keys.ArrowRight = false; keys.Space = false;
         }
 
-        // ★ init関数を修正 (画像読み込み待機)
         function init() {
-            resizeCanvas(); // 最初にキャンバスサイズを調整
-
+            // ... (変更なし) ...
+            resizeCanvas();
             playerImage = new Image();
-
-            // ★ 画像読み込み完了時の処理
-            playerImage.onload = () => {
-                console.log("Player image loaded.");
-                if (!gameStarted) {
-                    startGame();
-                }
-            };
-            // ★ 画像読み込みエラー時の処理
-            playerImage.onerror = () => {
-                console.error("Failed to load player image. Using fallback rectangle.");
-                playerImage = null; // 画像をnullにしてフォールバック描画を強制
-                 if (!gameStarted) {
-                    startGame();
-                }
-            };
-
-            // ★ GitHub Pages公開用にパスを修正
-            playerImage.src = '/jumpingmidori/1000006120.jpg';
-
-            // タイムアウト処理 (画像読み込みに失敗してもゲームを開始する)
-            setTimeout(() => {
-                if (!gameStarted) {
-                    console.warn("Image load timeout. Starting game.");
-                    startGame();
-                }
-            }, 5000); // 5秒待機
+            playerImage.onload = () => { if (!gameStarted) startGame(); };
+            playerImage.onerror = () => { playerImage = null; if (!gameStarted) startGame(); };
+            playerImage.src = '/jumpingmidori/1000006120.jpg'; // 公開用パス
+            setTimeout(() => { if (!gameStarted) startGame(); }, 5000);
         }
 
-        // ★ ゲーム開始ロジックを分離
         function startGame() {
-            if (gameStarted) return; // 既に開始されている場合は何もしない
+             // ... (変更なし) ...
+            if (gameStarted) return;
             gameStarted = true;
-
-            // ★ 初回のみステージを生成する
             createWorld();
-
-            // ★ プレイ回数を1に設定
             playCount = 1;
             updatePlayCountDisplay();
-
             resetGame();
-
-            // ★ BGM再生を試みる
             playBgm();
-
-            gameLoop(); // ゲームループ開始
+            gameLoop();
         }
 
-
-        // --- キャンバスのリサイズ処理 ---
+        // --- キャンバスのリサイズ処理 (変更なし) ---
         function resizeCanvas() {
-            // ウィンドウの内部サイズを取得
+             // ... (変更なし) ...
             const innerWidth = window.innerWidth;
             const innerHeight = window.innerHeight;
-
-            // ゲームのアスペクト比 (幅 / 高さ)
             const gameAspectRatio = GAME_WIDTH / GAME_HEIGHT;
-
             let newCanvasWidth, newCanvasHeight;
-
-            // ウィンドウの高さに基づいて幅を決めるか、幅に基づいて高さを決めるか
             if (innerWidth / innerHeight > gameAspectRatio) {
-                // ウィンドウが横長すぎる場合 (高さを基準にする)
                 newCanvasHeight = innerHeight;
                 newCanvasWidth = newCanvasHeight * gameAspectRatio;
             } else {
-                // ウィンドウが縦長すぎる場合 (幅を基準にする)
                 newCanvasWidth = innerWidth;
                 newCanvasHeight = newCanvasWidth / gameAspectRatio;
             }
-
-            // キャンバスの表示サイズ（CSS）を設定
             canvas.style.width = `${newCanvasWidth}px`;
             canvas.style.height = `${newCanvasHeight}px`;
-
-            // キャンバスの内部解像度（描画）を設定
             const dpr = window.devicePixelRatio || 1;
             canvas.width = GAME_WIDTH * dpr;
             canvas.height = GAME_HEIGHT * dpr;
-
-            // スケーリングを設定
             ctx.scale(dpr, dpr);
-
-            // info-displayの位置調整 (キャンバスの左上に合わせる)
             const canvasRect = canvas.getBoundingClientRect();
-            infoDisplay.style.left = `${canvasRect.left + 10}px`;
-            infoDisplay.style.top = `${canvasRect.top + 10}px`;
+            if(infoDisplay){ // Ensure infoDisplay is not null
+                 infoDisplay.style.left = `${canvasRect.left + 10}px`;
+                 infoDisplay.style.top = `${canvasRect.top + 10}px`;
+             }
         }
 
-
-        // --- ゲームループ ---
+        // --- ゲームループ (変更なし) ---
         function update() {
-            // ジャンプ溜め
-            // 地面にいる、かつSpaceキーが押されている、かつ現在溜め中でない場合
-            if (keys.Space && player.onGround && !isCharging) {
-                isCharging = true;
-                jumpCharge = 0; // 新しいジャンプの溜めを開始
-            }
-
-            if (isCharging && player.onGround) {
-                if (jumpCharge < MAX_JUMP_CHARGE) {
-                    jumpCharge++;
-                }
-            }
-
-            // ★ playerが未定義の場合はupdateをスキップ
+             // ... (変更なし, カメラ追従ロジックも含む) ...
+            if (keys.Space && player && player.onGround && !isCharging) { isCharging = true; jumpCharge = 0; }
+            if (isCharging && player && player.onGround && jumpCharge < MAX_JUMP_CHARGE) jumpCharge++;
             if (!player) return;
             player.update();
 
-            // ★ カメラ追従ロジックを修正
-            
-            // 1. 上昇時のカメラ追従 (プレイヤーが画面の上1/3より上に進んだら)
+            // カメラ追従
             const cameraTargetYUp = player.y - GAME_HEIGHT / 3;
-            if (cameraTargetYUp < cameraY) {
-                 cameraY = cameraTargetYUp;
-            }
-
-            // 2. ★ 神モード時の下降カメラ追従
-            // プレイヤーが画面の下 3/4 より下にいったらカメラを追従させる
+            if (cameraTargetYUp < cameraY) cameraY = cameraTargetYUp;
+            // 神モード時の下降追従
             if (godMode) {
-                const cameraTargetYDown = player.y - (GAME_HEIGHT * 0.75); 
-                if (cameraTargetYDown > cameraY) {
-                    cameraY = cameraTargetYDown;
-                }
+                const cameraTargetYDown = player.y - (GAME_HEIGHT * 0.75);
+                if (cameraTargetYDown > cameraY) cameraY = cameraTargetYDown;
             }
-
-            // 3. カメラの範囲制限
-            // カメラがスタート地点より下に行かないように
-            if (cameraY > worldHeight - GAME_HEIGHT) {
-                cameraY = worldHeight - GAME_HEIGHT;
-            }
-            // カメラがワールドの上限を超えないように
-            const topLimit = platforms[platforms.length-1].y - 100; // 最後の足場より少し上
-            if (cameraY < topLimit) {
-                 cameraY = topLimit;
-            }
+            // カメラ範囲制限
+            const topLimit = platforms.length > 0 ? platforms[platforms.length-1].y - 100 : 0; // 配列空チェック追加
+            cameraY = Math.max(topLimit, Math.min(worldHeight - GAME_HEIGHT, cameraY));
         }
 
         function draw() {
+            // ... (変更なし) ...
             ctx.save();
             const dpr = window.devicePixelRatio || 1;
-            ctx.scale(1/dpr, 1/dpr); // スケーリングをリセット
-
-            // 画面クリア
+            ctx.scale(1/dpr, 1/dpr);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 仮想解像度(GAME_WIDTH, GAME_HEIGHT)で描画するようにスケール
             ctx.save();
             ctx.scale(canvas.width / GAME_WIDTH, canvas.height / GAME_HEIGHT);
-
-
-            // --- カメラ変換 ---
             ctx.translate(0, -cameraY);
 
-            // ★ 背景色 (カメラ範囲のみ) を高度に応じて変更
-            let currentHeightMeters = 0;
-            if (player) {
-                // 現在のプレイヤーのY座標から高さを計算
-                currentHeightMeters = Math.max(0, Math.floor((worldHeight - player.y) / pixelsPerMeter));
-            }
-
-            let bgColor = '#87CEEB'; // 0-199m (空)
-            if (currentHeightMeters >= 200 && currentHeightMeters < 400) {
-                bgColor = '#FFA07A'; // 200-399m (夕焼け)
-            } else if (currentHeightMeters >= 400 && currentHeightMeters < 600) {
-                bgColor = '#483D8B'; // 400-599m (夜)
-            } else if (currentHeightMeters >= 600) {
-                bgColor = '#191970'; // 600m+ (宇宙)
-            }
-
+            // 背景色
+            let currentHeightMeters = player ? Math.max(0, Math.floor((worldHeight - player.y) / pixelsPerMeter)) : 0;
+            let bgColor = '#87CEEB'; // 空
+            if (currentHeightMeters >= 600) bgColor = '#191970'; // 宇宙
+            else if (currentHeightMeters >= 400) bgColor = '#483D8B'; // 夜
+            else if (currentHeightMeters >= 200) bgColor = '#FFA07A'; // 夕焼け
             ctx.fillStyle = bgColor;
             ctx.fillRect(0, cameraY, GAME_WIDTH, GAME_HEIGHT);
 
-
-            // --- オブジェクト描画 ---
+            // オブジェクト描画
             platforms.forEach(p => p.draw(ctx));
+            if(player) player.draw(ctx);
 
-            // ★ player.draw が null でないことを確認 (初期化前対策)
-            if(player) {
-                player.draw(ctx);
-            }
-
-            ctx.restore(); // カメラ変換を戻す
-            ctx.restore(); // スケールを戻す
+            ctx.restore(); // カメラ変換戻す
+            ctx.restore(); // スケール戻す
         }
 
         function gameLoop() {
-            if (messageBox.classList.contains('hidden')) { // メッセージ表示中は停止
-                update();
-            }
+            // ... (変更なし) ...
+            if (messageBox.classList.contains('hidden')) update();
             draw();
             requestAnimationFrame(gameLoop);
         }
 
-        // --- イベントリスナー ---
+        // --- イベントリスナー (キーボード、タッチは変更なし) ---
+        function handleFirstInteraction() { if (!audioStarted) playBgm(); }
 
-        // ★ 最初のユーザー操作でBGM再生を試みる
-        function handleFirstInteraction() {
-            if (!audioStarted) {
-                playBgm();
-            }
-        }
+        // キーボード
+        function handleKeyDown(e) { /* ... (変更なし) ... */ handleFirstInteraction(); if (e.key === 'ArrowLeft') keys.ArrowLeft = true; else if (e.key === 'ArrowRight') keys.ArrowRight = true; if (e.key === ' ') { e.preventDefault(); keys.Space = true; if (player && player.onGround && !isCharging) { if (keys.ArrowLeft && !keys.ArrowRight) player.direction = 'left'; else if (keys.ArrowRight && !keys.ArrowLeft) player.direction = 'right'; } } }
+        function handleKeyUp(e) { /* ... (変更なし) ... */ if (e.key === 'ArrowLeft') keys.ArrowLeft = false; else if (e.key === 'ArrowRight') keys.ArrowRight = false; if (e.key === ' ') { if (isCharging && player) player.jump(); } }
 
-        // キーボード操作
-        function handleKeyDown(e) {
-            handleFirstInteraction(); // ★ BGM再生トリガー
+        // タッチ
+        function handleTouchStart(e) { /* ... (変更なし) ... */ handleFirstInteraction(); e.preventDefault(); const targetId = e.target.id; if (targetId === 'btn-left') keys.ArrowLeft = true; else if (targetId === 'btn-right') keys.ArrowRight = true; else if (targetId === 'btn-jump') { keys.Space = true; if (player && player.onGround && !isCharging) { if (keys.ArrowLeft && !keys.ArrowRight) player.direction = 'left'; else if (keys.ArrowRight && !keys.ArrowLeft) player.direction = 'right'; } } }
+        function handleTouchEnd(e) { /* ... (変更なし) ... */ e.preventDefault(); for (let touch of e.changedTouches) { const targetId = touch.target.id; if (targetId === 'btn-left') keys.ArrowLeft = false; else if (targetId === 'btn-right') keys.ArrowRight = false; else if (targetId === 'btn-jump') { if (isCharging && player) player.jump(); } } if (e.touches.length === 0) { keys.ArrowLeft = false; keys.ArrowRight = false; } }
 
-            if (e.key === 'ArrowLeft') {
-                keys.ArrowLeft = true;
-            } else if (e.key === 'ArrowRight') {
-                keys.ArrowRight = true;
-            }
-            if (e.key === ' ') {
-                e.preventDefault();
-                keys.Space = true;
+        // ★ キャンバスへのタップイベントリスナー (神モード用) - 座標変換を修正
+        canvas.addEventListener('click', (event) => {
+            if (!player || !gameStarted) return;
 
-                // ★スペースを押した瞬間に、現在の左右キー入力で向きを更新する
-                // (地上で溜め始めた瞬間の方向転換)
-                if (player && player.onGround && !isCharging) {
-                    if (keys.ArrowLeft && !keys.ArrowRight) {
-                        player.direction = 'left';
-                    } else if (keys.ArrowRight && !keys.ArrowLeft) {
-                        player.direction = 'right';
-                    }
+            const rect = canvas.getBoundingClientRect();
+            // ★★★ 座標変換ロジックを修正 ★★★
+            // event.clientX/Y はビューポートに対する座標
+            // これを canvas 要素の左上を原点とする座標に変換
+            const canvasX = event.clientX - rect.left;
+            const canvasY = event.clientY - rect.top;
+
+            // canvas 要素上の座標 (CSSピクセル) をゲーム内座標に変換
+            // rect.width/height は CSS ピクセルでの表示サイズ
+            const gameClickX = (canvasX / rect.width) * GAME_WIDTH;
+            // カメラのスクロール分を加味して Y 座標を計算
+            const gameClickY = ((canvasY / rect.height) * GAME_HEIGHT) + cameraY;
+
+
+            // プレイヤーの現在の描画範囲 (向きは考慮不要)
+            const playerRect = {
+                x: player.x,
+                y: player.y,
+                width: player.width,
+                height: player.height
+            };
+
+            // タップ座標がプレイヤー範囲内かチェック
+            if (gameClickX >= playerRect.x && gameClickX <= playerRect.x + playerRect.width &&
+                gameClickY >= playerRect.y && gameClickY <= playerRect.y + playerRect.height) {
+
+                 // ★ タップフィードバック表示
+                 handlePlayerTapFeedback();
+
+                const now = Date.now();
+                if (now - lastPlayerTapTime < tapTimeout) {
+                    playerTapCount++;
+                } else {
+                    playerTapCount = 1;
                 }
-            }
-        }
+                lastPlayerTapTime = now;
 
-        function handleKeyUp(e) {
-            if (e.key === 'ArrowLeft') {
-                keys.ArrowLeft = false;
-            } else if (e.key === 'ArrowRight') {
-                keys.ArrowRight = false;
-            }
-            // スペースキーを離した（ジャンプ実行）
-            if (e.key === ' ') {
-                // keys.Space = false; // player.jump()内でリセット
-                if (isCharging && player) {
-                    player.jump();
+                if (playerTapCount >= 5) {
+                    godMode = !godMode;
+                    console.log(`God Mode ${godMode ? 'ON' : 'OFF'}`); // コンソールに表示
+                    playerTapCount = 0; // リセット
                 }
+            } else {
+                 playerTapCount = 0; // プレイヤー以外をタップしたらリセット
             }
+        });
+
+        // ★ タップフィードバック処理
+        function handlePlayerTapFeedback() {
+            if (tapFeedbackTimer) clearTimeout(tapFeedbackTimer); // 前のタイマーがあればクリア
+            showTapFeedback = true;
+            tapFeedbackTimer = setTimeout(() => {
+                showTapFeedback = false;
+                tapFeedbackTimer = null;
+            }, 100); // 100ms後にフィードバックを消す
         }
 
-        // タッチ操作
-        function handleTouchStart(e) {
-            handleFirstInteraction(); // ★ BGM再生トリガー
-
-            e.preventDefault();
-            const targetId = e.target.id;
-
-            if (targetId === 'btn-left') {
-                keys.ArrowLeft = true;
-            } else if (targetId === 'btn-right') {
-                keys.ArrowRight = true;
-            } else if (targetId === 'btn-jump') {
-                keys.Space = true;
-
-                // ★スペースを押した瞬間に、現在の左右キー入力で向きをS更新する
-                if (player && player.onGround && !isCharging) {
-                    if (keys.ArrowLeft && !keys.ArrowRight) {
-                        player.direction = 'left';
-                    } else if (keys.ArrowRight && !keys.ArrowLeft) {
-                        player.direction = 'right';
-                    }
-                }
-            }
-        }
-
-        function handleTouchEnd(e) {
-            e.preventDefault();
-
-            // 押されていたボタンを特定するために changedTouches を見る
-            for (let touch of e.changedTouches) {
-                // touch.target が押されていた要素
-                const targetId = touch.target.id;
-
-                if (targetId === 'btn-left') {
-                    keys.ArrowLeft = false;
-                } else if (targetId === 'btn-right') {
-                    keys.ArrowRight = false;
-                } else if (targetId === 'btn-jump') {
-                    // keys.Space = false; // player.jump()内でリセット
-                    if (isCharging && player) {
-                        player.jump();
-                    }
-                }
-            }
-
-            // もしタッチがすべて離れたら、念のため左右キーの状態はリセット
-            // Spaceキーはジャンプ処理でリセットされるのでここでは不要
-             if (e.touches.length === 0) {
-                keys.ArrowLeft = false;
-                keys.ArrowRight = false;
-            }
-        }
 
         // ウィンドウリサイズ
         window.addEventListener('resize', resizeCanvas);
-
         // キーボード入力
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('keyup', handleKeyUp);
-
         // タッチ入力
         const controls = document.getElementById('touch-controls');
         controls.addEventListener('touchstart', handleTouchStart, { passive: false });
         controls.addEventListener('touchend', handleTouchEnd, { passive: false });
-        controls.addEventListener('touchcancel', handleTouchEnd, { passive: false }); // 予期せぬキャンセル
+        controls.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 
-        // ★ 神モードボタンの処理
-        const godModeBtn = document.getElementById('god-mode-btn');
-        if (godModeBtn) {
-            godModeBtn.addEventListener('click', () => {
-                godMode = !godMode;
-                godModeBtn.textContent = godMode ? "神モード ON" : "神モード OFF";
-                
-                // Tailwindのクラスを動的に切り替え
-                godModeBtn.classList.toggle('bg-yellow-500', !godMode);
-                godModeBtn.classList.toggle('text-black', !godMode);
-                godModeBtn.classList.toggle('bg-red-600', godMode);
-                godModeBtn.classList.toggle('text-white', godMode);
-            });
-        }
+        // 神モードボタンの処理は削除済み
 
         // ゲーム開始
         window.addEventListener('load', init);
