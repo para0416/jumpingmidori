@@ -64,7 +64,7 @@
         .touch-btn:active {
             background-color: rgba(255, 255, 255, 0.7);
         }
-        
+
         /* ★ BGMボタン用のスタイル */
         #mute-btn {
             background-color: rgba(0, 0, 0, 0.5);
@@ -95,9 +95,9 @@
         <div id="info-display" class="absolute top-4 left-4 text-white text-lg font-bold p-2 bg-black bg-opacity-30 rounded-lg">
             <p>Space / JUMP長押し + 左右キーで方向決定！</p>
             <p>最高到達点: <span id="max-height-display">0</span>m</p>
-            <!-- ★ プレイ回数表示を追加 -->
+            <!-- ★ 現在の高さ表示を追加 -->
+            <p>現在の高さ: <span id="current-height-display">0</span>m</p>
             <p>プレイ回数: <span id="play-count-display">0</span>回</p>
-            <!-- ★ BGMボタンを追加 -->
             <button id="mute-btn">BGM ON/OFF</button>
         </div>
     </div>
@@ -121,7 +121,8 @@
 
         const infoDisplay = document.getElementById('info-display');
         const maxHeightDisplay = document.getElementById('max-height-display');
-        // ★ プレイ回数表示用の要素を取得
+        // ★ 現在の高さ表示用の要素を取得
+        const currentHeightDisplay = document.getElementById('current-height-display');
         const playCountDisplay = document.getElementById('play-count-display');
 
         // ★ BGM関連
@@ -140,7 +141,7 @@
             ArrowRight: false,
             Space: false
         };
-        
+
         // ★ 画像読み込み用の変数
         let playerImage;
         let gameStarted = false; // 二重起動防止
@@ -152,11 +153,11 @@
         const GRAVITY = 0.3;
         const FRICTION = 0.85; // 地上での摩擦 (ジャンプ後は使われない)
         const AIR_FRICTION = 0.99; // 空中での水平速度の減衰
-        
+
         // ★★★ ジャンプのロジックを「角度調整」に戻す
         const JUMP_HORIZONTAL_SPEED_MIN = 0.5; // ★最小ジャンプ時の水平速度
         const JUMP_HORIZONTAL_SPEED_MAX = 6;   // ★最大ジャンプ時の水平速度
-        
+
         const MAX_JUMP_CHARGE = 100; // ジャンプ溜めの最大値
         const JUMP_FORCE_MIN = 1; // 最小ジャンプ力 (垂直)
         const JUMP_FORCE_MAX = 15; // 最大ジャンプ力 (垂直)
@@ -182,8 +183,8 @@
                 this.height = 30;
                 this.x = x - this.width / 2;
                 this.y = y - this.height;
-                this.vx = 0; 
-                this.vy = 0; 
+                this.vx = 0;
+                this.vy = 0;
                 this.onGround = false;
                 this.color = '#FF5733'; // フォールバック時の色
                 this.direction = 'right'; // ★向きを追加 (最初は右)
@@ -206,19 +207,19 @@
                      this.vx = 0; // ジャンプ溜め中も水平速度0
                 }
 
-                
+
                 // 2. 物理演算
                 this.vy += GRAVITY; // 重力
-                
+
                 // 摩擦
-                if (this.onGround) { 
+                if (this.onGround) {
                     // 地面上ではvxは0
                     this.vx *= FRICTION;
                 } else if (!this.onGround) { // 空中
                     // ★空中にいる間は、キー入力に関わらず水平速度は減衰していく
                     this.vx *= AIR_FRICTION;
                 }
-                
+
                 // 速度が小さすぎたら0にする
                 if (Math.abs(this.vx) < 0.1) this.vx = 0;
                 if (Math.abs(this.vy) < 0.1 && this.onGround && !isCharging) this.vy = 0; // ジャンプ溜め中は微小なvyでも0にしない
@@ -230,7 +231,7 @@
                 // 3. 位置の更新
                 this.x += this.vx;
                 this.y += this.vy;
-                
+
                 this.onGround = false; // 毎フレームリセット
 
                 // 4. 当たり判定 (壁)
@@ -243,13 +244,13 @@
                     this.x = GAME_WIDTH - this.width;
                     this.vx *= -0.5; // 少し跳ね返る
                 }
-                
+
                 // 5. 当たり判定 (足場)
                 platforms.forEach(platform => {
                     // 足場とプレイヤーの現在位置での重なりをチェック
                     const isCollidingX = this.x + this.width > platform.x && this.x < platform.x + platform.width;
                     const isCollidingY = this.y + this.height > platform.y && this.y < platform.y + platform.height;
-                    
+
                     // 前フレームでの水平方向の重なり
                     const wasCollidingX = prevX + this.width > platform.x && prevX < platform.x + platform.width;
 
@@ -266,7 +267,7 @@
                             this.vy = 0; // 上向きの速度を0にする
                         }
                     }
-                    
+
                     // ★横からの衝突判定 (空中にいるとき)
                     if (!this.onGround && !isCollidingY && !wasCollidingX) {
                          // 前フレームでは横が重なっておらず、今フレームで重なっている
@@ -290,7 +291,15 @@
                     showFallMessage();
                 }
 
-                // 7. 最高到達点の更新
+                // 7. 高さの更新
+                
+                // ★ 現在の高さを計算して表示
+                const currentHeightInMeters = Math.max(0, Math.floor((worldHeight - this.y) / pixelsPerMeter));
+                if (currentHeightDisplay) {
+                    currentHeightDisplay.textContent = currentHeightInMeters;
+                }
+
+                // ★ 最高到達点の更新
                 if (this.y < maxHeightReached) {
                     maxHeightReached = this.y;
                     // スコア表示を更新 (スタート地点(worldHeight)からの差分)
@@ -315,7 +324,7 @@
                     // ゲージの枠
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
                     ctx.fillRect(barX, barY, barWidth, barHeight);
-                    
+
                     // ゲージ本体 (赤くする)
                     ctx.fillStyle = `rgb(255, ${255 * (1 - chargeRatio)}, 0)`;
                     ctx.fillRect(barX, barY, barWidth * chargeRatio, barHeight);
@@ -330,7 +339,7 @@
                         // 左向きの場合、キャンバスを反転
                         ctx.scale(-1, 1);
                         // 反転したため、描画X座標を調整 (プレイヤーの中心で反転させるためwidth分ずらす)
-                        drawX = -(this.x + this.width); 
+                        drawX = -(this.x + this.width);
                     }
 
                     // (drawX, this.y) の位置に (width, height) のサイズで画像を描画
@@ -342,7 +351,7 @@
                     ctx.fillRect(this.x, this.y, this.width, this.height);
 
                     // ★向きを示す「目」を描画 (フォールバック時)
-                    ctx.fillStyle = '#FFFFFF'; 
+                    ctx.fillStyle = '#FFFFFF';
                     const eyeWidth = 5;
                     const eyeHeight = 5;
                     const eyeY = this.y + 5;
@@ -355,7 +364,7 @@
                     }
                     ctx.fillRect(eyeX, eyeY, eyeWidth, eyeHeight);
                 }
-                
+
                 ctx.restore(); // 描画状態を元に戻す (反転などをリセット)
             }
 
@@ -365,16 +374,16 @@
                 if (this.onGround) {
                     // 溜め時間に応じてジャンプ力を計算
                     const chargeRatio = Math.min(jumpCharge, MAX_JUMP_CHARGE) / MAX_JUMP_CHARGE;
-                    
+
                     // ★垂直方向のジャンプ力 (溜めに比例)
                     const forceY = JUMP_FORCE_MIN + (JUMP_FORCE_MAX - JUMP_FORCE_MIN) * chargeRatio;
-                    
+
                     // ★水平方向のジャンプ力 (溜めに比例)
                     const forceX = JUMP_HORIZONTAL_SPEED_MIN + (JUMP_HORIZONTAL_SPEED_MAX - JUMP_HORIZONTAL_SPEED_MIN) * chargeRatio;
-                    
+
                     this.vy = -forceY;
                     this.onGround = false;
-                    
+
                     // ★ 水平方向の速度を、キー入力ではなく「向き」に基づいて決定
                     if (this.direction === 'left') {
                         this.vx = -forceX;
@@ -402,7 +411,7 @@
             draw(ctx) {
                 ctx.fillStyle = this.color;
                 ctx.fillRect(this.x, this.y, this.width, this.height);
-                
+
                 // 少し立体的に見せるための明るい上辺
                 ctx.fillStyle = '#8B5A2B';
                 ctx.fillRect(this.x, this.y, this.width, 3);
@@ -436,7 +445,7 @@
         // ★ BGM再生を試みる関数
         async function playBgm() {
             if (audioStarted) return; // 既に開始しようとした
-            
+
             // mutedプロパティで再生開始
             bgm.muted = false; // ミュート解除
             try {
@@ -465,7 +474,7 @@
 
 
         // --- ゲームの初期化・リセット ---
-        
+
         // ★ 固定ステージを定義
         function createWorld() {
             platforms = [];
@@ -473,22 +482,22 @@
 
             // --- ゾーン1 (0m - 200m) ---
             platforms.push(new Platform(50, currentY - 50, GAME_WIDTH - 100, 50)); // 0. スタート
-            platforms.push(new Platform(280, currentY - 150, 100, 15)); // 1. 
-            platforms.push(new Platform(150, currentY - 230, 100, 15)); // 2. 
+            platforms.push(new Platform(280, currentY - 150, 100, 15)); // 1.
+            platforms.push(new Platform(150, currentY - 230, 100, 15)); // 2.
             platforms.push(new Platform(20, currentY - 330, 100, 15));  // 3.
             platforms.push(new Platform(250, currentY - 480, 130, 15)); // 4.
-            platforms.push(new Platform(150, currentY - 600, 100, 15)); // 5. 
-            platforms.push(new Platform(20, currentY - 750, 80, 15));  // 6. 
-            platforms.push(new Platform(160, currentY - 900, 80, 15));  // 7. 
-            platforms.push(new Platform(300, currentY - 1050, 80, 15)); // 8. 
-            platforms.push(new Platform(150, currentY - 1250, 60, 15)); // 9. 
+            platforms.push(new Platform(150, currentY - 600, 100, 15)); // 5.
+            platforms.push(new Platform(20, currentY - 750, 80, 15));  // 6.
+            platforms.push(new Platform(160, currentY - 900, 80, 15));  // 7.
+            platforms.push(new Platform(300, currentY - 1050, 80, 15)); // 8.
+            platforms.push(new Platform(150, currentY - 1250, 60, 15)); // 9.
             platforms.push(new Platform(20, currentY - 1450, 60, 15));  // 10.
-            platforms.push(new Platform(200, currentY - 1650, 60, 15)); // 11. 
-            
+            platforms.push(new Platform(200, currentY - 1650, 60, 15)); // 11.
+
             // ★ 修正: 195m地点を簡単な階段に変更
             platforms.push(new Platform(200, currentY - 1850, 100, 15)); // 12. (Y:3150)
             platforms.push(new Platform(100, currentY - 1920, 80, 15)); // 12b. ★新しい階段 (Y:3080)
-            
+
             // ゾーン1 -> 2 への中間地点 (約200m地点, Y: 3000)
             // (登るための隙間は(X:150-200)に確保)
             platforms.push(new Platform(200, currentY - 2000, GAME_WIDTH - 200, 50)); // 13a. 右側
@@ -497,21 +506,22 @@
             // --- ゾーン2 (200m - 400m) ---
             // ★ 難易度: 角度と高さを意識するステージ (狭い足場と隙間)
             let y_zone2 = currentY - 2000; // Y: 3000 からスタート
-            
+
             platforms.push(new Platform(130, y_zone2 - 150, 40, 15)); // 14. 狭い足場
             platforms.push(new Platform(300, y_zone2 - 300, 40, 15)); // 15. 狭い足場
-            platforms.push(new Platform(100, y_zone2 - 480, 40, 15)); // 16. (①) 狭い足場
-            
+             // ★★★ 修正: 足場①の幅を 40 -> 80 に拡張
+            platforms.push(new Platform(100, y_zone2 - 480, 80, 15)); // 16. (①) ★幅を拡張
+
             // 壁1 (隙間: X 150-200)
             platforms.push(new Platform(0, y_zone2 - 650, 150, 80));   // 17a. 左壁
             platforms.push(new Platform(200, y_zone2 - 650, 200, 80)); // 17b. 右壁 (赤線)
-            
+
             // ★★★ 修正: 足場②を「壁反射」用に X:130-200 に拡張
             platforms.push(new Platform(130, y_zone2 - 750, 70, 15));  // 18. (②) ★壁反射の受け皿
-            
+
             platforms.push(new Platform(50, y_zone2 - 950, 40, 15));   // 19. 狭い足場
             platforms.push(new Platform(250, y_zone2 - 1150, 40, 15)); // 20. 狭い足場
-            
+
             // 壁2 (隙間: X 300-350)
             platforms.push(new Platform(0, y_zone2 - 1350, 300, 80));   // 21a. 左壁
             platforms.push(new Platform(350, y_zone2 - 1350, 50, 80));  // 21b. 右壁
@@ -523,47 +533,53 @@
             // ゾーン2 -> 3 への中間地点 (約400m地点, Y: 1000)
             platforms.push(new Platform(250, y_zone2 - 2000, GAME_WIDTH - 250, 50)); // 24a. 右側
             platforms.push(new Platform(0, y_zone2 - 2000, 200, 50)); // 24b. 左側
-            
+
             // --- ゾーン3 (400m - 600m) ---
             // (元のデザインのまま)
             let y_zone3 = y_zone2 - 2000; // Y: 1000 からスタート
-            
-            platforms.push(new Platform(180, y_zone3 - 180, 60, 15)); // 25. 
-            platforms.push(new Platform(50, y_zone3 - 360, 48, 15));  // 26. 
-            platforms.push(new Platform(250, y_zone3 - 540, 36, 15)); // 27. 
-            platforms.push(new Platform(100, y_zone3 - 720, 60, 15)); // 28. 
-            platforms.push(new Platform(300, y_zone3 - 900, 36, 15)); // 29. 
-            platforms.push(new Platform(150, y_zone3 - 1100, 48, 15));// 30. 
-            platforms.push(new Platform(20, y_zone3 - 1300, 60, 15)); // 31. 
-            platforms.push(new Platform(200, y_zone3 - 1500, 36, 15));// 32. 
-            platforms.push(new Platform(50, y_zone3 - 1700, 48, 15)); // 33. 
-            platforms.push(new Platform(50, y_zone3 - 1900, 60, 15));// 34. 
-            
+
+            platforms.push(new Platform(180, y_zone3 - 180, 60, 15)); // 25.
+            platforms.push(new Platform(50, y_zone3 - 360, 48, 15));  // 26.
+            platforms.push(new Platform(250, y_zone3 - 540, 36, 15)); // 27.
+            platforms.push(new Platform(100, y_zone3 - 720, 60, 15)); // 28.
+            platforms.push(new Platform(300, y_zone3 - 900, 36, 15)); // 29.
+            platforms.push(new Platform(150, y_zone3 - 1100, 48, 15));// 30.
+            platforms.push(new Platform(20, y_zone3 - 1300, 60, 15)); // 31.
+            platforms.push(new Platform(200, y_zone3 - 1500, 36, 15));// 32.
+            platforms.push(new Platform(50, y_zone3 - 1700, 48, 15)); // 33.
+            platforms.push(new Platform(50, y_zone3 - 1900, 60, 15));// 34.
+
             // ゾーン3 ゴール (約600m地点, Y: -1000)
             platforms.push(new Platform(100, y_zone3 - 2000, GAME_WIDTH - 100, 50)); // 35a. 右側
             platforms.push(new Platform(0, y_zone3 - 2000, 50, 50)); // 35b. 左側
-            
+
             // ゴール後の最上部 (Y: -1100)
-            platforms.push(new Platform(0, y_zone3 - 2100, 50, 15)); 
+            platforms.push(new Platform(0, y_zone3 - 2100, 50, 15));
         }
 
 
         function resetGame() {
             // ★ ステージは再生成しない
             // createWorld();
-            
+
             // スタート地点 (Y座標はworldHeight)
             const startPlatform = platforms[0]; // 最初の足場
             player = new Player(GAME_WIDTH / 2, startPlatform.y - 50);
-            
+
+            // ★ リセット時の高さを計算して表示
+            const startHeightInMeters = Math.max(0, Math.floor((worldHeight - player.y) / pixelsPerMeter));
+            if (currentHeightDisplay) {
+                currentHeightDisplay.textContent = startHeightInMeters;
+            }
+
             cameraY = worldHeight - GAME_HEIGHT; // カメラをスタート地点に合わせる
-            
+
             // maxHeightReachedはリセットするが、表示はグローバルな最大値を保持したい
             if (maxHeightReached === 0 || player.y < maxHeightReached) {
                  maxHeightReached = player.y; // リセット後のプレイヤー位置
             }
             // maxHeightDisplay.textContent = '0'; // 0にリセットしない
-            
+
             isCharging = false;
             jumpCharge = 0;
             // キー状態もリセット
@@ -575,9 +591,9 @@
         // ★ init関数を修正 (画像読み込み待機)
         function init() {
             resizeCanvas(); // 最初にキャンバスサイズを調整
-            
+
             playerImage = new Image();
-            
+
             // ★ 画像読み込み完了時の処理
             playerImage.onload = () => {
                 console.log("Player image loaded.");
@@ -593,10 +609,10 @@
                     startGame();
                 }
             };
-            
+
             // ★ GitHub Pages公開用にパスを修正
-            playerImage.src = '/jumpingmidori/1000006120.jpg'; 
-            
+            playerImage.src = '/jumpingmidori/1000006120.jpg';
+
             // タイムアウト処理 (画像読み込みに失敗してもゲームを開始する)
             setTimeout(() => {
                 if (!gameStarted) {
@@ -605,24 +621,24 @@
                 }
             }, 5000); // 5秒待機
         }
-        
+
         // ★ ゲーム開始ロジックを分離
         function startGame() {
             if (gameStarted) return; // 既に開始されている場合は何もしない
             gameStarted = true;
-            
+
             // ★ 初回のみステージを生成する
-            createWorld(); 
+            createWorld();
 
             // ★ プレイ回数を1に設定
             playCount = 1;
             updatePlayCountDisplay();
 
             resetGame();
-            
+
             // ★ BGM再生を試みる
             playBgm();
-            
+
             gameLoop(); // ゲームループ開始
         }
 
@@ -635,7 +651,7 @@
 
             // ゲームのアスペクト比 (幅 / 高さ)
             const gameAspectRatio = GAME_WIDTH / GAME_HEIGHT;
-            
+
             let newCanvasWidth, newCanvasHeight;
 
             // ウィンドウの高さに基づいて幅を決めるか、幅に基づいて高さを決めるか
@@ -657,7 +673,7 @@
             const dpr = window.devicePixelRatio || 1;
             canvas.width = GAME_WIDTH * dpr;
             canvas.height = GAME_HEIGHT * dpr;
-            
+
             // スケーリングを設定
             ctx.scale(dpr, dpr);
 
@@ -682,17 +698,19 @@
                     jumpCharge++;
                 }
             }
-            
+
+            // ★ playerが未定義の場合はupdateをスキップ
+            if (!player) return;
             player.update();
-            
+
             // カメラ追従 (プレイヤーが画面の上1/3より上に進んだら)
             const cameraTargetY = player.y - GAME_HEIGHT / 3;
-            
+
             // ジャンプキング風: プレイヤーが一定ラインを超えたら即座に追従
             if (cameraTargetY < cameraY) {
                  cameraY = cameraTargetY;
             }
-            
+
             // カメラがスタート地点より下に行かないように
             if (cameraY > worldHeight - GAME_HEIGHT) {
                 cameraY = worldHeight - GAME_HEIGHT;
@@ -708,10 +726,10 @@
             ctx.save();
             const dpr = window.devicePixelRatio || 1;
             ctx.scale(1/dpr, 1/dpr); // スケーリングをリセット
-            
+
             // 画面クリア
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
+
             // 仮想解像度(GAME_WIDTH, GAME_HEIGHT)で描画するようにスケール
             ctx.save();
             ctx.scale(canvas.width / GAME_WIDTH, canvas.height / GAME_HEIGHT);
@@ -719,7 +737,7 @@
 
             // --- カメラ変換 ---
             ctx.translate(0, -cameraY);
-            
+
             // ★ 背景色 (カメラ範囲のみ) を高度に応じて変更
             let currentHeightMeters = 0;
             if (player) {
@@ -735,19 +753,19 @@
             } else if (currentHeightMeters >= 600) {
                 bgColor = '#191970'; // 600m+ (宇宙)
             }
-            
+
             ctx.fillStyle = bgColor;
             ctx.fillRect(0, cameraY, GAME_WIDTH, GAME_HEIGHT);
 
 
             // --- オブジェクト描画 ---
             platforms.forEach(p => p.draw(ctx));
-            
+
             // ★ player.draw が null でないことを確認 (初期化前対策)
             if(player) {
                 player.draw(ctx);
             }
-            
+
             ctx.restore(); // カメラ変換を戻す
             ctx.restore(); // スケールを戻す
         }
@@ -761,27 +779,27 @@
         }
 
         // --- イベントリスナー ---
-        
+
         // ★ 最初のユーザー操作でBGM再生を試みる
         function handleFirstInteraction() {
             if (!audioStarted) {
                 playBgm();
             }
         }
-        
+
         // キーボード操作
         function handleKeyDown(e) {
             handleFirstInteraction(); // ★ BGM再生トリガー
-            
+
             if (e.key === 'ArrowLeft') {
                 keys.ArrowLeft = true;
             } else if (e.key === 'ArrowRight') {
                 keys.ArrowRight = true;
             }
             if (e.key === ' ') {
-                e.preventDefault(); 
+                e.preventDefault();
                 keys.Space = true;
-                
+
                 // ★スペースを押した瞬間に、現在の左右キー入力で向きを更新する
                 // (地上で溜め始めた瞬間の方向転換)
                 if (player && player.onGround && !isCharging) {
@@ -812,17 +830,17 @@
         // タッチ操作
         function handleTouchStart(e) {
             handleFirstInteraction(); // ★ BGM再生トリガー
-            
-            e.preventDefault(); 
+
+            e.preventDefault();
             const targetId = e.target.id;
-            
+
             if (targetId === 'btn-left') {
                 keys.ArrowLeft = true;
             } else if (targetId === 'btn-right') {
                 keys.ArrowRight = true;
             } else if (targetId === 'btn-jump') {
                 keys.Space = true;
-                
+
                 // ★スペースを押した瞬間に、現在の左右キー入力で向きをS更新する
                 if (player && player.onGround && !isCharging) {
                     if (keys.ArrowLeft && !keys.ArrowRight) {
@@ -836,7 +854,7 @@
 
         function handleTouchEnd(e) {
             e.preventDefault();
-            
+
             // 押されていたボタンを特定するために changedTouches を見る
             for (let touch of e.changedTouches) {
                 // touch.target が押されていた要素
@@ -853,7 +871,7 @@
                     }
                 }
             }
-            
+
             // もしタッチがすべて離れたら、念のため左右キーの状態はリセット
             // Spaceキーはジャンプ処理でリセットされるのでここでは不要
              if (e.touches.length === 0) {
@@ -864,7 +882,7 @@
 
         // ウィンドウリサイズ
         window.addEventListener('resize', resizeCanvas);
-        
+
         // キーボード入力
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('keyup', handleKeyUp);
