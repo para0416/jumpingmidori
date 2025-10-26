@@ -73,7 +73,7 @@
             border-radius: 4px;
             border: 1px solid white;
             cursor: pointer;
-            margin-top: 8px;
+            margin-top: 8px; /* ★ mt-2 と合わせるため 8px を指定 */
             font-size: 14px;
         }
         #mute-btn:hover {
@@ -95,10 +95,11 @@
         <div id="info-display" class="absolute top-4 left-4 text-white text-lg font-bold p-2 bg-black bg-opacity-30 rounded-lg">
             <p>Space / JUMP長押し + 左右キーで方向決定！</p>
             <p>最高到達点: <span id="max-height-display">0</span>m</p>
-            <!-- ★ 現在の高さ表示を追加 -->
             <p>現在の高さ: <span id="current-height-display">0</span>m</p>
             <p>プレイ回数: <span id="play-count-display">0</span>回</p>
-            <button id="mute-btn">BGM ON/OFF</button>
+            <button id="mute-btn">BGM ON/OFF</button> <!-- ★ class="mt-2" はCSS側で指定済のため削除 -->
+            <!-- ★ 神モードボタンを追加 -->
+            <button id="god-mode-btn" class="mt-2 bg-yellow-500 text-black p-1 rounded text-sm font-bold">神モード OFF</button>
         </div>
     </div>
 
@@ -121,7 +122,6 @@
 
         const infoDisplay = document.getElementById('info-display');
         const maxHeightDisplay = document.getElementById('max-height-display');
-        // ★ 現在の高さ表示用の要素を取得
         const currentHeightDisplay = document.getElementById('current-height-display');
         const playCountDisplay = document.getElementById('play-count-display');
 
@@ -129,6 +129,9 @@
         const bgm = document.getElementById('bgm-audio');
         const muteBtn = document.getElementById('mute-btn');
         let audioStarted = false; // ユーザー操作による再生開始フラグ
+
+        // ★ 神モード（死なないモード）フラグ
+        let godMode = false;
 
         // ゲーム内単位での仮想解像度
         const GAME_WIDTH = 400;
@@ -287,7 +290,11 @@
                 });
 
                 // 6. 落下判定 (画面下 + カメラ位置より下に落ちた)
-                if (this.y > cameraY + GAME_HEIGHT + 100) {
+                const fallThreshold = cameraY + GAME_HEIGHT + 100; // 落下判定ライン
+
+                // ★ 神モード(godMode)が false の場合のみ、落下判定を実行
+                if (this.y > fallThreshold && !godMode) {
+                    // ★ 通常モードの場合: メッセージ表示
                     showFallMessage();
                 }
 
@@ -491,8 +498,11 @@
             platforms.push(new Platform(160, currentY - 900, 80, 15));  // 7.
             platforms.push(new Platform(300, currentY - 1050, 80, 15)); // 8.
             platforms.push(new Platform(150, currentY - 1250, 60, 15)); // 9.
-            platforms.push(new Platform(20, currentY - 1450, 60, 15));  // 10.
-            platforms.push(new Platform(200, currentY - 1650, 60, 15)); // 11.
+            platforms.push(new Platform(20, currentY - 1450, 60, 15));  // 10. (Y:3550)
+            platforms.push(new Platform(200, currentY - 1650, 60, 15)); // 11. (Y:3350)
+            
+            // ★★★ ユーザー要望により新しい足場を追加 (Y:3330)
+            platforms.push(new Platform(300, currentY - 1670, 80, 15)); // 11b. ★ 要望により追加
 
             // ★ 修正: 195m地点を簡単な階段に変更
             platforms.push(new Platform(200, currentY - 1850, 100, 15)); // 12. (Y:3150)
@@ -509,7 +519,8 @@
 
             platforms.push(new Platform(130, y_zone2 - 150, 40, 15)); // 14. 狭い足場
             platforms.push(new Platform(300, y_zone2 - 300, 40, 15)); // 15. 狭い足場
-             // ★★★ 修正: 足場①の幅を 80 -> 100 にさらに拡張
+            
+            // ★★★ 修正: 足場①の幅を 40 -> 100 にさらに拡張
             platforms.push(new Platform(100, y_zone2 - 480, 100, 15)); // 16. (①) ★さらに幅を拡張
 
             // 壁1 (隙間: X 150-200)
@@ -703,14 +714,24 @@
             if (!player) return;
             player.update();
 
-            // カメラ追従 (プレイヤーが画面の上1/3より上に進んだら)
-            const cameraTargetY = player.y - GAME_HEIGHT / 3;
-
-            // ジャンプキング風: プレイヤーが一定ラインを超えたら即座に追従
-            if (cameraTargetY < cameraY) {
-                 cameraY = cameraTargetY;
+            // ★ カメラ追従ロジックを修正
+            
+            // 1. 上昇時のカメラ追従 (プレイヤーが画面の上1/3より上に進んだら)
+            const cameraTargetYUp = player.y - GAME_HEIGHT / 3;
+            if (cameraTargetYUp < cameraY) {
+                 cameraY = cameraTargetYUp;
             }
 
+            // 2. ★ 神モード時の下降カメラ追従
+            // プレイヤーが画面の下 3/4 より下にいったらカメラを追従させる
+            if (godMode) {
+                const cameraTargetYDown = player.y - (GAME_HEIGHT * 0.75); 
+                if (cameraTargetYDown > cameraY) {
+                    cameraY = cameraTargetYDown;
+                }
+            }
+
+            // 3. カメラの範囲制限
             // カメラがスタート地点より下に行かないように
             if (cameraY > worldHeight - GAME_HEIGHT) {
                 cameraY = worldHeight - GAME_HEIGHT;
@@ -892,6 +913,21 @@
         controls.addEventListener('touchstart', handleTouchStart, { passive: false });
         controls.addEventListener('touchend', handleTouchEnd, { passive: false });
         controls.addEventListener('touchcancel', handleTouchEnd, { passive: false }); // 予期せぬキャンセル
+
+        // ★ 神モードボタンの処理
+        const godModeBtn = document.getElementById('god-mode-btn');
+        if (godModeBtn) {
+            godModeBtn.addEventListener('click', () => {
+                godMode = !godMode;
+                godModeBtn.textContent = godMode ? "神モード ON" : "神モード OFF";
+                
+                // Tailwindのクラスを動的に切り替え
+                godModeBtn.classList.toggle('bg-yellow-500', !godMode);
+                godModeBtn.classList.toggle('text-black', !godMode);
+                godModeBtn.classList.toggle('bg-red-600', godMode);
+                godModeBtn.classList.toggle('text-white', godMode);
+            });
+        }
 
         // ゲーム開始
         window.addEventListener('load', init);
