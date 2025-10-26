@@ -292,7 +292,7 @@
                 }
 
                 // 7. 高さの更新
-                
+
                 // ★ 現在の高さを計算して表示
                 const currentHeightInMeters = Math.max(0, Math.floor((worldHeight - this.y) / pixelsPerMeter));
                 if (currentHeightDisplay) {
@@ -509,8 +509,8 @@
 
             platforms.push(new Platform(130, y_zone2 - 150, 40, 15)); // 14. 狭い足場
             platforms.push(new Platform(300, y_zone2 - 300, 40, 15)); // 15. 狭い足場
-             // ★★★ 修正: 足場①の幅を 40 -> 80 に拡張
-            platforms.push(new Platform(100, y_zone2 - 480, 80, 15)); // 16. (①) ★幅を拡張
+             // ★★★ 修正: 足場①の幅を 80 -> 100 にさらに拡張
+            platforms.push(new Platform(100, y_zone2 - 480, 100, 15)); // 16. (①) ★さらに幅を拡張
 
             // 壁1 (隙間: X 150-200)
             platforms.push(new Platform(0, y_zone2 - 650, 150, 80));   // 17a. 左壁
