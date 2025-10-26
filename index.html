@@ -85,7 +85,6 @@
 
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
-        <!-- ★ CSSクラスのタイポ修正 (-translate-x-1.2 -> -translate-x-1/2) -->
         <div id="message-box" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-lg text-center hidden">
             <p id="message-text" class="text-xl font-bold mb-4"></p>
             <button id="message-ok" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
@@ -469,8 +468,8 @@
             platforms.push(new Platform(20, currentY - 1450, 60, 15));  // 10.
             platforms.push(new Platform(200, currentY - 1650, 60, 15)); // 11. 
             
-            // ★ 修正: 12番目の足場のX座標を変更 (250 -> 220) して、中間セーブ(13番)に登りやすく
-            platforms.push(new Platform(220, currentY - 1850, 100, 15)); // 12. ★位置調整
+            // ★ 修正: 12番目の足場のX座標を変更 (220 -> 200) して、中間セーブ(13番)に登りやすく
+            platforms.push(new Platform(200, currentY - 1850, 100, 15)); // 12. ★さらに位置調整
             
             // ゾーン1 -> 2 への中間地点 (約200m地点, Y: 3000)
             // ★ 修正: 足場を2つに分割し、登るための隙間(X:150-200)を確保
