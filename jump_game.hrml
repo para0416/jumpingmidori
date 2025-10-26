@@ -64,6 +64,21 @@
         .touch-btn:active {
             background-color: rgba(255, 255, 255, 0.7);
         }
+        
+        /* ★ BGMボタン用のスタイル */
+        #mute-btn {
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid white;
+            cursor: pointer;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        #mute-btn:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
     </style>
 </head>
 <body class="bg-gray-900">
@@ -80,6 +95,8 @@
         <div id="info-display" class="absolute top-4 left-4 text-white text-lg font-bold p-2 bg-black bg-opacity-30 rounded-lg">
             <p>Space / JUMP長押し + 左右キーで方向決定！</p>
             <p>最高到達点: <span id="max-height-display">0</span>m</p>
+            <!-- ★ BGMボタンを追加 -->
+            <button id="mute-btn">BGM ON/OFF</button>
         </div>
     </div>
 
@@ -91,6 +108,10 @@
         <button id="btn-jump" class="touch-btn w-20 h-20">JUMP</button>
     </div>
 
+    <!-- ★ BGM用Audioタグを追加 -->
+    <!-- GitHub Pages用にパスを修正 -->
+    <audio id="bgm-audio" loop src="/jumpingmidori/闇のささやき.mp3"></audio>
+
     <script type="module">
         // --- グローバル変数・定数 ---
         const canvas = document.getElementById('game-canvas');
@@ -98,6 +119,11 @@
 
         const infoDisplay = document.getElementById('info-display');
         const maxHeightDisplay = document.getElementById('max-height-display');
+
+        // ★ BGM関連
+        const bgm = document.getElementById('bgm-audio');
+        const muteBtn = document.getElementById('mute-btn');
+        let audioStarted = false; // ユーザー操作による再生開始フラグ
 
         // ゲーム内単位での仮想解像度
         const GAME_WIDTH = 400;
@@ -388,6 +414,38 @@
         });
 
 
+        // --- BGM制御 ---
+        // ★ BGM再生を試みる関数
+        async function playBgm() {
+            if (audioStarted) return; // 既に開始しようとした
+            
+            // mutedプロパティで再生開始
+            bgm.muted = false; // ミュート解除
+            try {
+                await bgm.play();
+                audioStarted = true; // 再生成功
+                muteBtn.textContent = "BGM OFF";
+                console.log("BGM started.");
+            } catch (err) {
+                console.warn("BGM autoplay failed. Waiting for user interaction.", err);
+                // ユーザー操作があるまで再生は保留される
+                muteBtn.textContent = "BGM ON"; // 再生失敗時はON表示
+            }
+        }
+
+        // ★ ミュートボタンのクリックイベント
+        muteBtn.addEventListener('click', () => {
+            if (bgm.paused) {
+                // もし停止中なら再生（初回再生用）
+                playBgm();
+            } else {
+                // 再生中ならミュート切り替え
+                bgm.muted = !bgm.muted;
+                muteBtn.textContent = bgm.muted ? "BGM ON" : "BGM OFF";
+            }
+        });
+
+
         // --- ゲームの初期化・リセット ---
         
         // ★ 固定ステージを定義 (中間地点修正版)
@@ -533,6 +591,10 @@
             // ★ 初回のみステージを生成する
             createWorld(); 
             resetGame();
+            
+            // ★ BGM再生を試みる
+            playBgm();
+            
             gameLoop(); // ゲームループ開始
         }
 
@@ -672,8 +734,17 @@
 
         // --- イベントリスナー ---
         
+        // ★ 最初のユーザー操作でBGM再生を試みる
+        function handleFirstInteraction() {
+            if (!audioStarted) {
+                playBgm();
+            }
+        }
+        
         // キーボード操作
         function handleKeyDown(e) {
+            handleFirstInteraction(); // ★ BGM再生トリガー
+            
             if (e.key === 'ArrowLeft') {
                 keys.ArrowLeft = true;
             } else if (e.key === 'ArrowRight') {
@@ -712,6 +783,8 @@
 
         // タッチ操作
         function handleTouchStart(e) {
+            handleFirstInteraction(); // ★ BGM再生トリガー
+            
             e.preventDefault(); 
             const targetId = e.target.id;
             
