@@ -147,8 +147,8 @@
         const AIR_FRICTION = 0.99; // 空中での水平速度の減衰
         
         const JUMP_HORIZONTAL_SPEED_MIN = 0.5; // ★微調整ジャンプ時の水平速度
-        const JUMP_HORIZONTAL_SPEED_NORMAL = 5.0; // ★通常ジャンプ時の水平速度 (固定値)
-        const JUMP_HORIZONTAL_SPEED_MAX = 6; // (使わない)
+        // ★★★ 修正: 水平速度が速すぎたため 5.0 -> 1.8 に変更
+        const JUMP_HORIZONTAL_SPEED_NORMAL = 1.8; // ★通常ジャンプ時の水平速度 (固定値)
         
         const MAX_JUMP_CHARGE = 100; // ジャンプ溜めの最大値
         const JUMP_FORCE_MIN = 1; // 最小ジャンプ力 (垂直)
@@ -369,6 +369,7 @@
                         forceX = JUMP_HORIZONTAL_SPEED_MIN;
                     } else {
                         // 通常ジャンプ (溜め具合に関わらず水平速度は一定)
+                        // ★★★ 修正: 5.0 -> 1.8
                         forceX = JUMP_HORIZONTAL_SPEED_NORMAL;
                     }
 
@@ -490,14 +491,15 @@
             
             platforms.push(new Platform(130, y_zone2 - 150, 40, 15)); // 14. 狭い足場
             platforms.push(new Platform(300, y_zone2 - 300, 40, 15)); // 15. 狭い足場
-            platforms.push(new Platform(100, y_zone2 - 480, 40, 15)); // 16. 狭い足場
-
+            platforms.push(new Platform(100, y_zone2 - 480, 40, 15)); // 16. (①) 狭い足場
+            
             // 壁1 (隙間: X 150-200)
             platforms.push(new Platform(0, y_zone2 - 650, 150, 80));   // 17a. 左壁
-            platforms.push(new Platform(200, y_zone2 - 650, 200, 80)); // 17b. 右壁
+            platforms.push(new Platform(200, y_zone2 - 650, 200, 80)); // 17b. 右壁 (赤線)
             
-            platforms.push(new Platform(160, y_zone2 - 750, 40, 15));  // 18. 隙間の後の足場
-
+            // ★★★ 修正: 足場②を隙間(150-200)いっぱいに広げる
+            platforms.push(new Platform(150, y_zone2 - 750, 50, 15));  // 18. (②) ★隙間を埋める
+            
             platforms.push(new Platform(50, y_zone2 - 950, 40, 15));   // 19. 狭い足場
             platforms.push(new Platform(250, y_zone2 - 1150, 40, 15)); // 20. 狭い足場
             
