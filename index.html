@@ -91,10 +91,12 @@
                 OK
             </button>
         </div>
-        <!-- チュートリアル/スコア表示 (テキストを修正) -->
+        <!-- チュートリアル/スコア表示 -->
         <div id="info-display" class="absolute top-4 left-4 text-white text-lg font-bold p-2 bg-black bg-opacity-30 rounded-lg">
             <p>Space / JUMP長押し + 左右キーで方向決定！</p>
             <p>最高到達点: <span id="max-height-display">0</span>m</p>
+            <!-- ★ プレイ回数表示を追加 -->
+            <p>プレイ回数: <span id="play-count-display">0</span>回</p>
             <!-- ★ BGMボタンを追加 -->
             <button id="mute-btn">BGM ON/OFF</button>
         </div>
@@ -119,6 +121,8 @@
 
         const infoDisplay = document.getElementById('info-display');
         const maxHeightDisplay = document.getElementById('max-height-display');
+        // ★ プレイ回数表示用の要素を取得
+        const playCountDisplay = document.getElementById('play-count-display');
 
         // ★ BGM関連
         const bgm = document.getElementById('bgm-audio');
@@ -141,13 +145,15 @@
         let playerImage;
         let gameStarted = false; // 二重起動防止
 
+        // ★ プレイ回数カウンター
+        let playCount = 0;
+
         // 物理定数
         const GRAVITY = 0.3;
         const FRICTION = 0.85; // 地上での摩擦 (ジャンプ後は使われない)
         const AIR_FRICTION = 0.99; // 空中での水平速度の減衰
         
         const JUMP_HORIZONTAL_SPEED_MIN = 0.5; // ★微調整ジャンプ時の水平速度
-        // ★★★ 修正: 水平速度が速すぎたため 5.0 -> 1.8 に変更
         const JUMP_HORIZONTAL_SPEED_NORMAL = 1.8; // ★通常ジャンプ時の水平速度 (固定値)
         
         const MAX_JUMP_CHARGE = 100; // ジャンプ溜めの最大値
@@ -369,7 +375,6 @@
                         forceX = JUMP_HORIZONTAL_SPEED_MIN;
                     } else {
                         // 通常ジャンプ (溜め具合に関わらず水平速度は一定)
-                        // ★★★ 修正: 5.0 -> 1.8
                         forceX = JUMP_HORIZONTAL_SPEED_NORMAL;
                     }
 
@@ -417,8 +422,18 @@
             messageBox.classList.remove('hidden');
         }
 
+        // ★ プレイ回数を更新する関数
+        function updatePlayCountDisplay() {
+            if (playCountDisplay) {
+                playCountDisplay.textContent = playCount;
+            }
+        }
+
+        // ★ OKボタンのイベントリスナーを修正
         messageOk.addEventListener('click', () => {
             messageBox.classList.add('hidden');
+            playCount++; // ★ プレイ回数を増やす
+            updatePlayCountDisplay(); // ★ 表示を更新
             resetGame(); // OKを押したらリセット
         });
 
@@ -604,6 +619,11 @@
             
             // ★ 初回のみステージを生成する
             createWorld(); 
+
+            // ★ プレイ回数を1に設定
+            playCount = 1;
+            updatePlayCountDisplay();
+
             resetGame();
             
             // ★ BGM再生を試みる
