@@ -153,10 +153,9 @@
         const FRICTION = 0.85; // 地上での摩擦 (ジャンプ後は使われない)
         const AIR_FRICTION = 0.99; // 空中での水平速度の減衰
         
-        // ★★★ 修正: ジャンプのロジックを元に戻す
+        // ★★★ ジャンプのロジックを「角度調整」に戻す
         const JUMP_HORIZONTAL_SPEED_MIN = 0.5; // ★最小ジャンプ時の水平速度
         const JUMP_HORIZONTAL_SPEED_MAX = 6;   // ★最大ジャンプ時の水平速度
-        // const JUMP_HORIZONTAL_SPEED_NORMAL = 1.8; // (使わない)
         
         const MAX_JUMP_CHARGE = 100; // ジャンプ溜めの最大値
         const JUMP_FORCE_MIN = 1; // 最小ジャンプ力 (垂直)
@@ -361,7 +360,7 @@
             }
 
 
-            // ★★★ ジャンプ処理のロジックを元に戻す ★★★
+            // ★★★ ジャンプ処理のロジックを「角度調整」に戻す ★★★
             jump() {
                 if (this.onGround) {
                     // 溜め時間に応じてジャンプ力を計算
@@ -467,7 +466,7 @@
 
         // --- ゲームの初期化・リセット ---
         
-        // ★ 固定ステージを定義 (ゾーン1簡略化、ゾーン2変更)
+        // ★ 固定ステージを定義
         function createWorld() {
             platforms = [];
             let currentY = worldHeight; // Y座標の基点 (5000)
@@ -507,8 +506,8 @@
             platforms.push(new Platform(0, y_zone2 - 650, 150, 80));   // 17a. 左壁
             platforms.push(new Platform(200, y_zone2 - 650, 200, 80)); // 17b. 右壁 (赤線)
             
-            // ★★★ 修正: 足場②を隙間(150-200)いっぱいに広げる
-            platforms.push(new Platform(150, y_zone2 - 750, 50, 15));  // 18. (②) ★隙間を埋める
+            // ★★★ 修正: 足場②を「壁反射」用に X:130-200 に拡張
+            platforms.push(new Platform(130, y_zone2 - 750, 70, 15));  // 18. (②) ★壁反射の受け皿
             
             platforms.push(new Platform(50, y_zone2 - 950, 40, 15));   // 19. 狭い足場
             platforms.push(new Platform(250, y_zone2 - 1150, 40, 15)); // 20. 狭い足場
